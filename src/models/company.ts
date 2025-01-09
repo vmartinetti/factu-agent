@@ -65,6 +65,7 @@ Company.init({
   districtName: DataTypes.STRING,
   email: DataTypes.STRING,
   feResponsibleDocId: DataTypes.STRING,
+  feResponsibleName: DataTypes.STRING
 }, {
   sequelize,
   modelName: 'company',
