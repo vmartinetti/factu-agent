@@ -41,6 +41,8 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
   if(!dDVRecString) return null;
   const dDVRec = parseInt(dDVRecString);
   const invoiceJSONWithNull = {
+    IdcSC: NODE_ENV === "development" ? '0001' : String(company.idCSC).padStart(4, "0"),
+    CSC: NODE_ENV === "development" ? 'ABCD0000000000000000000000000000' : company.CSC,
     iTipEmi: 1,
     dCodSeg: invoice.securityCode,
     iTiDE: 1, //Factura
@@ -92,21 +94,21 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
     // dEmailRec: "
     // dCodCliente: "0000614",
     iIndPres: 1,
-    iCondOpe: invoice.condition === "Contado" ? 1 : 2,
-    iTiPago: invoice.condition === "Contado" ? 1 : null,
-    dMonTiPag: invoice.condition === "Contado" ? invoice.total : null,
-    cMoneTiPag: invoice.condition === "Contado" ? invoice.currencyCode : null,
-    dDMoneTiPag: invoice.condition === "Contado" ? invoice.currencyCode === "PYG" ? "Guaraní" : "Dolar" : null,
+    iCondOpe: invoice.condition === "CONTADO" ? 1 : 2,
+    iTiPago: invoice.condition === "CONTADO" ? 1 : null,
+    dMonTiPag: invoice.condition === "CONTADO" ? Number(invoice.total) : null,
+    cMoneTiPag: invoice.condition === "CONTADO" ? invoice.currencyCode : null,
+    dDMoneTiPag: invoice.condition === "CONTADO" ? invoice.currencyCode === "PYG" ? "Guaraní" : "Dolar" : null,
     // dTiCamTIPag tipo de cambio para moneda extranjera
-    iCondCred: invoice.condition === "Crédito" ? 1 : null,
-    dDCondCred: invoice.condition === "Crédito" ? "Plazo" : null,
-    dPlazoCre: invoice.condition === "Crédito" ? "30 días" : null, //TODO: calculate from dueDate
-    dMonEnt: 0,
-    dSubExe: invoice.exentaTotal > 0 ? invoice.exentaTotal : 0,
+    iCondCred: invoice.condition === "CREDITO" ? 1 : null,
+    dDCondCred: invoice.condition === "CREDITO" ? "Plazo" : null,
+    dPlazoCre: invoice.condition === "CREDITO" ? "30 días" : null, //TODO: calculate from dueDate
+    // dMonEnt: invoice.condition === "CREDITO"? 0 : null,
+    dSubExe: invoice.exentaTotal > 0 ? Number(invoice.exentaTotal) : 0,
     dSubExo: 0,
-    dSub5: invoice.gravada5Total > 0 ? invoice.gravada5Total : 0,
-    dSub10: invoice.gravada10Total > 0 ? invoice.gravada10Total : 0,
-    dTotOpe: invoice.total,
+    dSub5: invoice.gravada5Total > 0 ? Number(invoice.gravada5Total) : 0,
+    dSub10: invoice.gravada10Total > 0 ? Number(invoice.gravada10Total) : 0,
+    dTotOpe: Number(invoice.total),
     dTotDesc: 0,
     dTotDescGlotem: 0,
     dTotAntItem: 0,
@@ -115,24 +117,24 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
     dDescTotal: 0,
     dAnticipo: 0,
     dRedon: 0, //TODO: check this to EESS Surtidores
-    dTotGralOpe: invoice.total,    
-    dIVA5: invoice.iva5Total > 0 ? invoice.iva5Total : 0,
-    dIVA10: invoice.iva10Total > 0 ? invoice.iva10Total : 0,
-    dTotIVA: invoice.iva5Total + invoice.iva10Total,
+    dTotGralOpe: Number(invoice.total),    
+    dIVA5: invoice.iva5Total > 0 ? Number(invoice.iva5Total) : 0,
+    dIVA10: invoice.iva10Total > 0 ? Number(invoice.iva10Total) : 0,
+    dTotIVA: Number(invoice.iva5Total) + Number(invoice.iva10Total),
     dBaseGrav5: invoice.gravada5Total > 0 ? Number(invoice.gravada5Total) - Number(invoice.iva5Total)  : 0,
     dBaseGrav10: invoice.gravada10Total > 0 ? Number(invoice.gravada10Total) - Number(invoice.iva10Total) : 0,
     dTBasGraIVA: Number(invoice.gravada5Total) + Number(invoice.gravada10Total) - Number(invoice.iva5Total) - Number(invoice.iva10Total),
     // dTotalGs: TODO: to check when USD is used
     itemsDet: invoiceItems.map((item, index) => ({
-      dCodInt: index + 1, //TODO: item.articleCode,
+      dCodInt: String(index + 1), //TODO: item.articleCode,
       dDesProSer: item.articleName,
       cUniMed: 77,
-      dCantProSer: item.quantity,
-      dPUniProSer: item.unitPrice,
+      dCantProSer: Number(item.quantity),
+      dPUniProSer: Number(item.unitPrice),
       // dTiCamIt: TODO: implement this when USD is used
-      dTotBruOpeItem: item.subTotal,
+      dTotBruOpeItem: Number(item.subTotal),
       dDescItem: 0,
-      dTotOpeItem: item.subTotal,
+      dTotOpeItem: Number(item.subTotal),
       // dTotOpeGs: TODO: implement this when USD is used
       iAfecIVA: item.iva > 0 ? 1 : 3,
       dDesAfecIVA: item.iva > 0 ? "Gravado IVA" : "Exento",

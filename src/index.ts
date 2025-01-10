@@ -1,8 +1,10 @@
 
+import { ZodError } from 'zod';
 import { getFirstPendingInvoice, getInvoiceJSON } from './controllers/invoiceController';
 import { sequelize } from './database';
 import { Company } from './models/company';
 import { InvoiceItem } from './models/invoiceItem';
+import { documentoSchema } from './schemas/documentoSchema';
 
 // test database connection with sequelize
 sequelize.authenticate().then(() => {
@@ -29,5 +31,22 @@ async function main() {
       return;
   }
   const invoiceJSON = await getInvoiceJSON(invoice, company, invoiceItems);
-  console.log('invoiceJSON', invoiceJSON)
+  if(!invoiceJSON){
+    console.log("Error generating invoice JSON");
+    return;
+  }
+  // test with zod
+  try{
+    return documentoSchema.parse(invoiceJSON);
+  }catch(err){
+    if (err instanceof ZodError) {
+      const simplifiedErrors = err.errors.map((error) => ({
+        field: error.path.length > 0 ? error.path.join(".") : undefined,
+        message: error.message,
+      }));
+      return console.log(simplifiedErrors)
+    } else {
+      return console.log("Error desconocido:", err );
+    }
+  }
 }

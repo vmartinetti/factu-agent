@@ -29,6 +29,8 @@ export class Company extends Model {
   declare email: string;
   declare feResponsibleDocId: string;
   declare feResponsibleName: string;
+  declare idCSC: number;
+  declare CSC: string;
 }
 
 Company.init({
@@ -65,7 +67,9 @@ Company.init({
   districtName: DataTypes.STRING,
   email: DataTypes.STRING,
   feResponsibleDocId: DataTypes.STRING,
-  feResponsibleName: DataTypes.STRING
+  feResponsibleName: DataTypes.STRING,
+  idCSC: DataTypes.INTEGER,
+  CSC: DataTypes.STRING
 }, {
   sequelize,
   modelName: 'company',

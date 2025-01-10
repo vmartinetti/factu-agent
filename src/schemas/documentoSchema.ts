@@ -56,7 +56,7 @@ const documentoSchemaItems = z.object({
       (value) => {
         const [integerPart, decimalPart] = value.toString().split(".");
         const isIntegerValid =
-          integerPart.length >= 1 && integerPart.length <= 10;
+        integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 10;
         const isDecimalValid = !decimalPart || decimalPart.length <= 4;
         return isIntegerValid && isDecimalValid;
       },
@@ -75,7 +75,7 @@ const documentoSchemaItems = z.object({
       (value) => {
         const [integerPart, decimalPart] = value.toString().split(".");
         const isIntegerValid =
-          integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
         const isDecimalValid = !decimalPart || decimalPart.length <= 8;
         return isIntegerValid && isDecimalValid;
       },
@@ -108,7 +108,7 @@ const documentoSchemaItems = z.object({
       (value) => {
         const [integerPart, decimalPart] = value.toString().split(".");
         const isIntegerValid =
-          integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
         const isDecimalValid = !decimalPart || decimalPart.length <= 8;
         return isIntegerValid && isDecimalValid;
       },
@@ -127,7 +127,7 @@ const documentoSchemaItems = z.object({
       (value) => {
         const [integerPart, decimalPart] = value.toString().split(".");
         const isIntegerValid =
-          integerPart.length >= 1 && integerPart.length <= 15;
+        integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
         const isDecimalValid = !decimalPart || decimalPart.length <= 8;
         return isIntegerValid && isDecimalValid;
       },
@@ -149,7 +149,7 @@ const documentoSchemaItems = z.object({
       (value) => {
         const [integerPart, decimalPart] = value.toString().split(".");
         const isIntegerValid =
-          integerPart.length >= 1 && integerPart.length <= 3;
+        integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 3;
         const isDecimalValid = !decimalPart || decimalPart.length <= 8;
         return isIntegerValid && isDecimalValid;
       },
@@ -171,7 +171,7 @@ const documentoSchemaItems = z.object({
       (value) => {
         const [integerPart, decimalPart] = value.toString().split(".");
         const isIntegerValid =
-          integerPart.length >= 1 && integerPart.length <= 15;
+        integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
         const isDecimalValid = !decimalPart || decimalPart.length <= 8;
         return isIntegerValid && isDecimalValid;
       },
@@ -190,7 +190,7 @@ const documentoSchemaItems = z.object({
       (value) => {
         const [integerPart, decimalPart] = value.toString().split(".");
         const isIntegerValid =
-          integerPart.length >= 1 && integerPart.length <= 15;
+        integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
         const isDecimalValid = !decimalPart || decimalPart.length <= 8;
         return isIntegerValid && isDecimalValid;
       },
@@ -209,7 +209,7 @@ const documentoSchemaItems = z.object({
       (value) => {
         const [integerPart, decimalPart] = value.toString().split(".");
         const isIntegerValid =
-          integerPart.length >= 1 && integerPart.length <= 15;
+        integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
         const isDecimalValid = !decimalPart || decimalPart.length <= 8;
         return isIntegerValid && isDecimalValid;
       },
@@ -231,7 +231,7 @@ const documentoSchemaItems = z.object({
       (value) => {
         const [integerPart, decimalPart] = value.toString().split(".");
         const isIntegerValid =
-          integerPart.length >= 1 && integerPart.length <= 15;
+        integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
         const isDecimalValid = !decimalPart || decimalPart.length <= 8;
         return isIntegerValid && isDecimalValid;
       },
@@ -253,7 +253,7 @@ const documentoSchemaItems = z.object({
       (value) => {
         const [integerPart, decimalPart] = value.toString().split(".");
         const isIntegerValid =
-          integerPart.length >= 1 && integerPart.length <= 15;
+        integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
         const isDecimalValid = !decimalPart || decimalPart.length <= 8;
         return isIntegerValid && isDecimalValid;
       },
@@ -306,7 +306,7 @@ const documentoSchemaItems = z.object({
       (value) => {
         const [integerPart, decimalPart] = value.toString().split(".");
         const isIntegerValid =
-          integerPart.length >= 1 && integerPart.length <= 15;
+        integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
         const isDecimalValid = !decimalPart || decimalPart.length <= 8;
         return isIntegerValid && isDecimalValid;
       },
@@ -325,7 +325,7 @@ const documentoSchemaItems = z.object({
       (value) => {
         const [integerPart, decimalPart] = value.toString().split(".");
         const isIntegerValid =
-          integerPart.length >= 1 && integerPart.length <= 15;
+        integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
         const isDecimalValid = !decimalPart || decimalPart.length <= 8;
         return isIntegerValid && isDecimalValid;
       },
@@ -1073,7 +1073,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 4;
           return isIntegerValid && isDecimalValid;
         },
@@ -1849,7 +1849,7 @@ export const documentoSchema = z
           const valueString = value.toString();
           const [integerPart, decimalPart] = valueString.split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = decimalPart ? decimalPart.length <= 8 : true;
 
           return isIntegerValid && isDecimalValid;
@@ -1869,7 +1869,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -1889,7 +1889,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -1909,7 +1909,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -1929,7 +1929,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -1948,7 +1948,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -1967,7 +1967,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -1986,7 +1986,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2005,7 +2005,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2024,7 +2024,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 3;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 3;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2043,7 +2043,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2062,7 +2062,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2081,7 +2081,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 3;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 3;
           const isDecimalValid = !decimalPart || decimalPart.length <= 4;
           return isIntegerValid && isDecimalValid;
         },
@@ -2103,7 +2103,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2125,7 +2125,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2144,7 +2144,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2163,7 +2163,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2182,7 +2182,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2201,7 +2201,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2220,7 +2220,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2242,7 +2242,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2261,7 +2261,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2280,7 +2280,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2299,7 +2299,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2321,7 +2321,7 @@ export const documentoSchema = z
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
           const isIntegerValid =
-            integerPart.length >= 1 && integerPart.length <= 15;
+          integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
           const isDecimalValid = !decimalPart || decimalPart.length <= 8;
           return isIntegerValid && isDecimalValid;
         },
@@ -2532,7 +2532,7 @@ export const documentoSchema = z
       iIndPres,
       iMotEmi,
       iMotEmiNR,
-      dKmR,
+      // dKmR,
       iCondOpe,
       iTiPago,
       dMonTiPag,
@@ -2554,22 +2554,22 @@ export const documentoSchema = z
       cDepSal,
       cDisSal,
       cCiuSal,
-      dTelSal,
+      // dTelSal,
       dDirLocEnt,
       dNumCasEnt,
-      dComp1Ent,
-      dComp2Ent,
+      // dComp1Ent,
+      // dComp2Ent,
       cDepEnt,
       cDisEnt,
       cCiuEnt,
-      dTelEnt,
+      // dTelEnt,
       dTiVehTras,
       dMarVeh,
       dTipIdenVeh,
-      dNroIDVeh,
-      dAdicVeh,
-      dNroMatVeh,
-      dNroVuelo,
+      // dNroIDVeh,
+      // dAdicVeh,
+      // dNroMatVeh,
+      // dNroVuelo,
       dPorcDescTotal,
       dRedon,
       dTotGralOpe,
@@ -2700,15 +2700,15 @@ export const documentoSchema = z
       }
     }
 
-    if (iTiDE !== 7) {
-      if (iCondAnt === undefined || iCondAnt === null) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "El campo iCondAnt es requerido si iTiDE no es 7.",
-          path: ["iCondAnt"],
-        });
-      }
-    }
+    // if (iTiDE !== 7) {
+    //   if (iCondAnt === undefined || iCondAnt === null) {
+    //     ctx.addIssue({
+    //       code: z.ZodIssueCode.custom,
+    //       message: "El campo iCondAnt es requerido si iTiDE no es 7.",
+    //       path: ["iCondAnt"],
+    //     });
+    //   }
+    // }
 
     if (iNatRec === 1) {
       if (iTiContRec === undefined || iTiContRec === null) {
