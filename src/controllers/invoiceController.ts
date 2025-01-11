@@ -69,6 +69,8 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
     dDesCiuEmi: company.cityName,
     dTelEmi: company.phoneNumber,
     dEmailE: company.email,
+    cActEco: company.economicActivityCod,
+    dDesActEco: company.economicActivityDesc,
     iTipIDRespDE: 1,
     dNumIDRespDE: company.feResponsibleDocId,
     dNomRespDE: company.feResponsibleName,

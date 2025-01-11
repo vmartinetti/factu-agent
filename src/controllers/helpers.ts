@@ -2,7 +2,7 @@ import xml2js from "xml2js";
 // const parser = new xml2js.Parser();
 const builder = new xml2js.Builder();
 import { dDCondCredList, dDCondOpeList, dDesAfecIVAList, dDesDenTarjList, dDesIndPresList, dDesMoneOpeList, dDesMotEmiList, dDesTImpList, dDesTiPagList, dDesTipDocAsoList, dDesTipTraList, dDesUniMedList, dDTipIDRespDEList } from "../constants";
-import { ciudadesList, departamentosList, distritosList, paisesList } from "../geographic";
+import { paisesList } from "../geographic";
 
 interface CDCData {
   dEst: string;
@@ -262,17 +262,17 @@ const getgDatRec = (body: any) => {
     dDTipIDRec: body.iNatRec !== 1 ? getDescription(body.iTipIDRec, dDTipIDRespDEList) : "null",
     dNumIDRec: body.iNatRec !== 1 ? body.dNumIDRec : "null",
     dNomRec: body.dNomRec,
-    dDirRec: body.dDirRec,
-    dNumCasRec: body.dNumCasRec ? body.dNumCasRec : 0,
-    cDepRec: body.cDepRec,
-    dDesDepRec: getDescription(body.cDepRec, departamentosList),
-    cDisRec: body.cDisRec,
-    dDesDisRec: getDescription(body.cDisRec, distritosList),
-    cCiuRec: body.cCiuRec,
-    dDesCiuRec: getDescription(body.cCiuRec, ciudadesList),
-    dTelRec: body.dTelRec,
-    dEmailRec: body.dEmailRec,
-    dCodCliente: body.dCodCliente
+    // dDirRec: body.dDirRec,
+    // dNumCasRec: body.dNumCasRec ? body.dNumCasRec : 0,
+    // cDepRec: body.cDepRec,
+    // dDesDepRec: getDescription(body.cDepRec, departamentosList),
+    // cDisRec: body.cDisRec,
+    // dDesDisRec: getDescription(body.cDisRec, distritosList),
+    // cCiuRec: body.cCiuRec,
+    // dDesCiuRec: getDescription(body.cCiuRec, ciudadesList),
+    // dTelRec: body.dTelRec,
+    // dEmailRec: body.dEmailRec,
+    // dCodCliente: body.dCodCliente
   };    
 };
 
@@ -294,6 +294,13 @@ const getgCamIVA = (iTImp: number, iTiDE: number, item: any) => {
   }
   return "null";
 };
+
+export const getdDenSuc = (body: any) => {
+  if (body.dDenSuc) {
+    return body.dDenSuc;
+  }
+  return "null";
+}
 
 export const buildItemsDet = (itemsDet: any, body: any) => {
   const itemDet: {}[] = [];

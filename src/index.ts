@@ -5,7 +5,7 @@ import { sequelize } from './database';
 import { Company } from './models/company';
 import { InvoiceItem } from './models/invoiceItem';
 import { documentoSchema } from './schemas/documentoSchema';
-import { buildItemsDet, calcularDV, eliminarValoresNulos, formarCdcSinDv, generateXml, getDescription, getgCamCond, getgCamDEAsoc, getgCamFE, getgCamNCDE, getgDatRec, getgOpeCom, getgTotSub } from './controllers/helpers';
+import { buildItemsDet, calcularDV, eliminarValoresNulos, formarCdcSinDv, generateXml, getdDenSuc, getDescription, getgCamCond, getgCamDEAsoc, getgCamFE, getgCamNCDE, getgDatRec, getgOpeCom, getgTotSub } from './controllers/helpers';
 import { dDesTiDEList, dDesTipEmiList } from './constants';
 import { ciudadesList, departamentosList, distritosList } from './geographic';
 
@@ -38,6 +38,8 @@ async function main() {
     console.log("Error generating invoice JSON");
     return;
   }
+  console.log('invoiceJSON.cActEco', invoiceJSON.cActEco)
+  console.log('invoiceJSON.dDesActEco', invoiceJSON.dDesActEco)
   // test with zod
   try{
     documentoSchema.parse(invoiceJSON);
@@ -132,7 +134,7 @@ async function main() {
             dDesCiuEmi: getDescription(invoiceJSON.cCiuEmi, ciudadesList),
             dTelEmi: invoiceJSON.dTelEmi,
             dEmailE: invoiceJSON.dEmailE,
-            dDenSuc: invoiceJSON.dDenSuc,
+            dDenSuc: getdDenSuc(invoiceJSON),
             gActEco:{
               cActEco: invoiceJSON.cActEco,
               dDesActEco: invoiceJSON.dDesActEco
@@ -160,5 +162,5 @@ async function main() {
   const documento = eliminarValoresNulos(documentoConNulos);
   // console.log('documento', documento)
   const xmlPrefirma = await generateXml(documento);
-  console.log('xmlPrefirma', xmlPrefirma)
+  console.log(xmlPrefirma)
 }
