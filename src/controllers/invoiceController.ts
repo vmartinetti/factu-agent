@@ -153,4 +153,3 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
   }, {} as { [key: string]: any });
   return invoiceJSON;
 }
-

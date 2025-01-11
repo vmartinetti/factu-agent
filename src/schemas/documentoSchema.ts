@@ -2514,7 +2514,7 @@ export const documentoSchema = z
       cMoneOpe,
       dCondTiCam,
       dTiCam,
-      iCondAnt,
+      // iCondAnt,
       iTiContRec,
       iNatRec,
       dRucRec,
