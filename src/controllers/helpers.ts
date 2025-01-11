@@ -1,8 +1,14 @@
+import fs from "fs";
+import path from "path";
+import { SignedXml } from "xml-crypto";
 import xml2js from "xml2js";
-// const parser = new xml2js.Parser();
-const builder = new xml2js.Builder();
+import crypto from "crypto";
 import { dDCondCredList, dDCondOpeList, dDesAfecIVAList, dDesDenTarjList, dDesIndPresList, dDesMoneOpeList, dDesMotEmiList, dDesTImpList, dDesTiPagList, dDesTipDocAsoList, dDesTipTraList, dDesUniMedList, dDTipIDRespDEList } from "../constants";
 import { paisesList } from "../geographic";
+import { NODE_ENV } from "../config";
+
+const parser = new xml2js.Parser();
+const builder = new xml2js.Builder();
 
 interface CDCData {
   dEst: string;
@@ -379,3 +385,170 @@ export const generateXml = async(invoiceData:any) => {
   }
   return builder.buildObject(obj);
 }
+
+export const obtenerDigestValue = async (xml: string): Promise<string> => {
+  const result = await parser.parseStringPromise(xml); 
+  return result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0][
+    "Signature"
+    ][0]["SignedInfo"][0]["Reference"][0]["DigestValue"][0];
+};
+
+const crearStringQr = (
+  qrData: any,
+  id: string,
+  IdcSC: string,
+  CSC: string
+): string => {
+  return `nVersion=${qrData.nVersion}&Id=${id}&dFeEmiDE=${qrData.dFeEmiDEHex}&${qrData.docType}=${qrData.docNumber}&dTotGralOpe=${qrData.dTotGralOpe}&dTotIVA=${qrData.dTotIVA}&cItems=${qrData.cItems}&DigestValue=${qrData.DigestValueHex}&IdCSC=${IdcSC}${CSC}`;
+};
+
+const obtenerCDC = async (xml: string): Promise<string> => {
+  const result = await parser.parseStringPromise(xml);
+  return result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0]["DE"][0]["$"]["Id"];
+};
+
+const generarQRUrl = async (
+  xml: string,
+  url: string
+): Promise<string> => {
+  const result = await parser.parseStringPromise(xml);
+  result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0]["gCamFuFD"][0]["dCarQR"] = url;
+  const builder = new xml2js.Builder({
+    renderOpts: { pretty: false },
+    headless: true,
+  });
+  return builder.buildObject(result);
+};
+
+// saneado
+const obtenerDatosQr = async (xml: string, digestValue: string) => {
+  let docType = "";
+  const result = await parser.parseStringPromise(xml);
+  let docNumber = "";
+  let dTotGralOpe = 0;
+  let dTotIVA = 0;
+
+  const nVersion = result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0]["dVerFor"][0];
+  const DE = result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0]["DE"][0];
+  const dFeEmiDE = DE["gDatGralOpe"][0]["dFeEmiDE"][0];
+  const dFeEmiDEHex = Buffer.from(dFeEmiDE).toString("hex");
+
+  if (DE["gDatGralOpe"][0]["gDatRec"][0]["iNatRec"][0] == 1) {
+    docNumber = DE["gDatGralOpe"][0]["gDatRec"][0]["dRucRec"][0];
+    docType = "dRucRec";
+  } else {
+    docNumber = DE["gDatGralOpe"][0]["gDatRec"][0]["dNumIDRec"][0];
+    docType = "dNumIDRec";
+  }
+
+  const iTiDE = DE["gTimb"][0]["iTiDE"][0];
+
+  if (iTiDE === "1") {
+    dTotGralOpe = DE["gTotSub"][0]["dTotGralOpe"][0];
+    dTotIVA = DE["gTotSub"][0]["dTotIVA"][0];
+  }
+
+  const cItems = DE["gDtipDE"][0]["gCamItem"].length;
+  const DigestValueHex = Buffer.from(digestValue).toString("hex");
+
+  return {
+    nVersion,
+    dFeEmiDEHex,
+    docNumber,
+    docType,
+    dTotGralOpe,
+    dTotIVA,
+    cItems,
+    DigestValueHex,
+    iTiDE,
+  };
+};
+
+const generarHash = (input: string): string => {
+  const hash = crypto.createHash("sha256");
+  hash.update(input, "binary");
+  return hash.digest("hex");
+};
+
+const crearQrUrl = (
+  qrData: any,
+  id: string,
+  hashHex: string,
+  IdcSC: string
+): string => {
+  const baseUrl =
+    NODE_ENV === "production"
+      ? "https://ekuatia.set.gov.py/consultas/qr?"
+      : "https://ekuatia.set.gov.py/consultas-test/qr?";
+  return `${baseUrl}nVersion=${qrData.nVersion}&Id=${id}&dFeEmiDE=${qrData.dFeEmiDEHex}&${qrData.docType}=${qrData.docNumber}&dTotGralOpe=${qrData.dTotGralOpe}&dTotIVA=${qrData.dTotIVA}&cItems=${qrData.cItems}&DigestValue=${qrData.DigestValueHex}&IdCSC=${IdcSC}&cHashQR=${hashHex}`;
+};
+
+const firmar = async (
+  xmlBuffer: string,
+  pemContent: string,
+  pubContent: string
+): Promise<string> => {
+  const sig = new SignedXml();
+  sig.signatureAlgorithm = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+  sig.canonicalizationAlgorithm = "http://www.w3.org/2001/10/xml-exc-c14n#";
+  sig.addReference({
+    xpath: "//*[local-name(.)='DE']",
+    transforms: [
+      "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
+      "http://www.w3.org/2001/10/xml-exc-c14n#",
+    ],
+    digestAlgorithm: "http://www.w3.org/2001/04/xmlenc#sha256",
+  });
+  sig.privateKey = Buffer.from(pemContent);
+  sig.publicCert = Buffer.from(pubContent);
+  sig.getKeyInfoContent = function () {
+    return `<X509Data><X509Certificate>${Buffer.from(
+      pubContent
+    )}</X509Certificate></X509Data>`;
+  };
+  sig.computeSignature(xmlBuffer, {
+    location: { reference: "//*[local-name(.)='DE']", action: "after" },
+  }); 
+  const signedXml = sig.getSignedXml(); 
+
+  return signedXml;
+};
+
+export const firmarDocumento = async (
+  dRucEm: string, IdcSC: string, CSC: string,
+  data: any
+): Promise<{ success: boolean; data?: any; error?: string }> => {
+  try {
+    const xmlBuffer = Buffer.from(data).toString("utf8");
+    const pemPath = path.join(__dirname, "../../certificates", `${dRucEm}.pem`);
+    const pubPath = path.join(__dirname, "../../certificates", `${dRucEm}.pub`);
+    console.log('pemPath', pemPath)
+    if (!fs.existsSync(pemPath) || !fs.existsSync(pubPath)) {
+      return {
+        success: false,
+        error: "Certificates not found for RUC: " + dRucEm,
+      };
+    }
+
+    const pemContent = await fs.promises.readFile(pemPath, "utf8");
+    const pubContent = await fs.promises.readFile(pubPath, "utf8");
+    
+    const xmlSigned = await firmar(xmlBuffer, pemContent, pubContent);
+
+    const digestValue = await obtenerDigestValue(xmlSigned);
+    const qrData = await obtenerDatosQr(xmlBuffer, digestValue);
+
+    const cdc = await obtenerCDC(xmlBuffer);
+    const concatenated = crearStringQr(qrData, cdc, IdcSC, CSC);
+    const hashHex = generarHash(concatenated);
+
+    const url = crearQrUrl(qrData, cdc, hashHex, IdcSC);
+
+    const result = await generarQRUrl(xmlSigned, url);
+
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("Error signing factura XML:", error);
+    return { success: false, error: "Internal server error" };
+  }
+};

@@ -5,7 +5,7 @@ import { sequelize } from './database';
 import { Company } from './models/company';
 import { InvoiceItem } from './models/invoiceItem';
 import { documentoSchema } from './schemas/documentoSchema';
-import { buildItemsDet, calcularDV, eliminarValoresNulos, formarCdcSinDv, generateXml, getdDenSuc, getDescription, getgCamCond, getgCamDEAsoc, getgCamFE, getgCamNCDE, getgDatRec, getgOpeCom, getgTotSub } from './controllers/helpers';
+import { buildItemsDet, calcularDV, eliminarValoresNulos, firmarDocumento, formarCdcSinDv, generateXml, getdDenSuc, getDescription, getgCamCond, getgCamDEAsoc, getgCamFE, getgCamNCDE, getgDatRec, getgOpeCom, getgTotSub } from './controllers/helpers';
 import { dDesTiDEList, dDesTipEmiList } from './constants';
 import { ciudadesList, departamentosList, distritosList } from './geographic';
 
@@ -162,5 +162,8 @@ async function main() {
   const documento = eliminarValoresNulos(documentoConNulos);
   // console.log('documento', documento)
   const xmlPrefirma = await generateXml(documento);
-  console.log(xmlPrefirma)
+  // console.log(xmlPrefirma);
+  const {dRucEm, IdcSC, CSC} = invoiceJSON;
+  const xmlPostFirma = await firmarDocumento(dRucEm, IdcSC, CSC, xmlPrefirma);
+  console.log(xmlPostFirma.data);
 }
