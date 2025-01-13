@@ -399,6 +399,7 @@ const crearStringQr = (
   IdcSC: string,
   CSC: string
 ): string => {
+  // console.log('CSC', CSC)
   return `nVersion=${qrData.nVersion}&Id=${id}&dFeEmiDE=${qrData.dFeEmiDEHex}&${qrData.docType}=${qrData.docNumber}&dTotGralOpe=${qrData.dTotGralOpe}&dTotIVA=${qrData.dTotIVA}&cItems=${qrData.cItems}&DigestValue=${qrData.DigestValueHex}&IdCSC=${IdcSC}${CSC}`;
 };
 
@@ -474,13 +475,14 @@ const crearQrUrl = (
   qrData: any,
   id: string,
   hashHex: string,
-  IdcSC: string
+  IdcSC: string,
+  CSC: string
 ): string => {
   const baseUrl =
     NODE_ENV === "production"
       ? "https://ekuatia.set.gov.py/consultas/qr?"
       : "https://ekuatia.set.gov.py/consultas-test/qr?";
-  return `${baseUrl}nVersion=${qrData.nVersion}&Id=${id}&dFeEmiDE=${qrData.dFeEmiDEHex}&${qrData.docType}=${qrData.docNumber}&dTotGralOpe=${qrData.dTotGralOpe}&dTotIVA=${qrData.dTotIVA}&cItems=${qrData.cItems}&DigestValue=${qrData.DigestValueHex}&IdCSC=${IdcSC}&cHashQR=${hashHex}`;
+  return `${baseUrl}nVersion=${qrData.nVersion}&Id=${id}&dFeEmiDE=${qrData.dFeEmiDEHex}&${qrData.docType}=${qrData.docNumber}&dTotGralOpe=${qrData.dTotGralOpe}&dTotIVA=${qrData.dTotIVA}&cItems=${qrData.cItems}&DigestValue=${qrData.DigestValueHex}&IdCSC=${IdcSC}${CSC}&cHashQR=${hashHex}`;
 };
 
 const firmar = async (
@@ -540,9 +542,10 @@ export const firmarDocumento = async (
 
     const cdc = await obtenerCDC(xmlBuffer);
     const concatenated = crearStringQr(qrData, cdc, IdcSC, CSC);
+    // console.log('concatenated', concatenated)
     const hashHex = generarHash(concatenated);
 
-    const url = crearQrUrl(qrData, cdc, hashHex, IdcSC);
+    const url = crearQrUrl(qrData, cdc, hashHex, IdcSC, CSC);
 
     const result = await generarQRUrl(xmlSigned, url);
 
