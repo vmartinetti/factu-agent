@@ -475,14 +475,13 @@ const crearQrUrl = (
   qrData: any,
   id: string,
   hashHex: string,
-  IdcSC: string,
-  CSC: string
+  IdcSC: string
 ): string => {
   const baseUrl =
     NODE_ENV === "production"
       ? "https://ekuatia.set.gov.py/consultas/qr?"
       : "https://ekuatia.set.gov.py/consultas-test/qr?";
-  return `${baseUrl}nVersion=${qrData.nVersion}&Id=${id}&dFeEmiDE=${qrData.dFeEmiDEHex}&${qrData.docType}=${qrData.docNumber}&dTotGralOpe=${qrData.dTotGralOpe}&dTotIVA=${qrData.dTotIVA}&cItems=${qrData.cItems}&DigestValue=${qrData.DigestValueHex}&IdCSC=${IdcSC}${CSC}&cHashQR=${hashHex}`;
+  return `${baseUrl}nVersion=${qrData.nVersion}&Id=${id}&dFeEmiDE=${qrData.dFeEmiDEHex}&${qrData.docType}=${qrData.docNumber}&dTotGralOpe=${qrData.dTotGralOpe}&dTotIVA=${qrData.dTotIVA}&cItems=${qrData.cItems}&DigestValue=${qrData.DigestValueHex}&IdCSC=${IdcSC}&cHashQR=${hashHex}`;
 };
 
 const firmar = async (
@@ -522,9 +521,10 @@ export const firmarDocumento = async (
 ): Promise<{ success: boolean; data?: any; error?: string }> => {
   try {
     const xmlBuffer = Buffer.from(data).toString("utf8");
+    // console.log('xmlBuffer', xmlBuffer)
     const pemPath = path.join(__dirname, "../../certificates", `${dRucEm}.pem`);
     const pubPath = path.join(__dirname, "../../certificates", `${dRucEm}.pub`);
-    console.log('pemPath', pemPath)
+    // console.log('pemPath', pemPath)
     if (!fs.existsSync(pemPath) || !fs.existsSync(pubPath)) {
       return {
         success: false,
@@ -545,7 +545,7 @@ export const firmarDocumento = async (
     // console.log('concatenated', concatenated)
     const hashHex = generarHash(concatenated);
 
-    const url = crearQrUrl(qrData, cdc, hashHex, IdcSC, CSC);
+    const url = crearQrUrl(qrData, cdc, hashHex, IdcSC);
 
     const result = await generarQRUrl(xmlSigned, url);
 
