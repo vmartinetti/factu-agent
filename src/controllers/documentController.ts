@@ -266,10 +266,6 @@ const writeQRUrl = (xml:string, url:string) => {
 
 export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: string, CSC: string): Promise<string> {
   try {
-    // const hash = crypto.createHash("sha256");
-    // replace xml content with file ejemplo-sin-firmar.xml content
-    // xml = fs.readFileSync(path.resolve(__dirname, '../../ejemplo-sin-firmar.xml'), 'utf8');
-    // console.log('xml', xml)
     const projectRoot = path.resolve(__dirname, '../../certificates/'); 
     const certificadoPemPath = path.join(projectRoot, `${ruc}.pem`);
     const certificadoPubPath = path.join(projectRoot, `${ruc}.pub`);
