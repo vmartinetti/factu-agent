@@ -49,15 +49,7 @@ async function processInvoice() {
   const dv = calcularDV(cdcSinDv);
   let cdc = `${cdcSinDv}${dv}`;
   
-  // old way is commented
   const documentoConNulos = {
-    // rDE: {
-    //   $:{
-    //     "xmlns":"http://ekuatia.set.gov.py/sifen/xsd",
-    //     "xmlns:xsi":"http://www.w3.org/2001/XMLSchema-instance",
-    //     "xsi:schemaLocation":"http://ekuatia.set.gov.py/sifen/xsd siRecepDE_v150.xsd"
-    //   },
-    //   dVerFor: 150,
     DE: {
       $: {
         Id: cdc,
@@ -115,12 +107,7 @@ async function processInvoice() {
       },
       gTotSub: getgTotSub(invoiceJSON),
       gCamDEAsoc: getgCamDEAsoc(invoiceJSON),
-    },
-    // ,
-    // gCamFuFD:{
-    //   dCarQR:''
-    // }
-    // },
+    }
   };
 
   const documento = eliminarValoresNulos(documentoConNulos);
