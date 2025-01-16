@@ -1,6 +1,3 @@
-import fs from "fs";
-import path from "path";
-import { SignedXml } from "xml-crypto";
 import xml2js from "xml2js";
 import crypto from "crypto";
 import { dDCondCredList, dDCondOpeList, dDesAfecIVAList, dDesDenTarjList, dDesIndPresList, dDesMoneOpeList, dDesMotEmiList, dDesTImpList, dDesTiPagList, dDesTipDocAsoList, dDesTipTraList, dDesUniMedList, dDTipIDRespDEList } from "../constants";
@@ -10,87 +7,45 @@ import { NODE_ENV } from "../config";
 const parser = new xml2js.Parser();
 const builder = new xml2js.Builder();
 
-interface CDCData {
-  dEst: string;
-  dPunExp: string;
-  dNumDoc: string;
-  dFeEmiDE: string;
-  dCodSeg: string;
-  iTipCont: string;
-  dRucEm: string;
-  dDVEmi: string;
-  iTipEmi: string;
-}
 
-export const formarCdcSinDv = (CDCData: CDCData) => {
-  const requiredFields = [
-    "dEst",
-    "dPunExp",
-    "dNumDoc",
-    "dFeEmiDE",
-    "dCodSeg",
-    "iTipCont",
-    "dRucEm",
-    "dDVEmi",
-    "iTipEmi"
-  ];
-  for (const field of requiredFields) {
-    if (!CDCData[field as keyof CDCData]) {
-      console.error(`El campo ${field} no está presente en el JSON.`);
-      return null;
-    }
-  }
+// export const formarCdcSinDv = (CDCData: CDCData) => {
+//   const requiredFields = [
+//     "dEst",
+//     "dPunExp",
+//     "dNumDoc",
+//     "dFeEmiDE",
+//     "dCodSeg",
+//     "iTipCont",
+//     "dRucEm",
+//     "dDVEmi",
+//     "iTipEmi"
+//   ];
+//   for (const field of requiredFields) {
+//     if (!CDCData[field as keyof CDCData]) {
+//       console.error(`El campo ${field} no está presente en el JSON.`);
+//       return null;
+//     }
+//   }
 
-  // Construcción del CDC
-  const facturaElectronica = "01"; // Tipo de documento
-  const ruc = CDCData.dRucEm.padStart(8, "0"); // RUC con padding de 8 caracteres
-  const digitoVerificador = CDCData.dDVEmi; // Dígito verificador
-  const establecimiento = CDCData.dEst.padStart(3, "0"); // Establecimiento (3 caracteres)
-  const puntoExpedicion = CDCData.dPunExp.padStart(3, "0"); // Punto de expedición (3 caracteres)
-  const numeroDocumento = CDCData.dNumDoc.padStart(7, "0"); // Número de documento (7 caracteres)
-  const tipoContribuyente = CDCData.iTipCont; // Tipo de contribuyente (Fijo)
-  const fechaEmision = CDCData.dFeEmiDE.slice(0, 10).replace(/-/g, ""); // Fecha de emisión en formato YYYYMMDD
-  const tipoEmision = CDCData.iTipEmi.toString(); // Tipo de emisión
-  const codigoDeSeguridad = CDCData.dCodSeg.toString().padStart(8, "0"); // Código de seguridad (8 caracteres)
+//   // Construcción del CDC
+//   const facturaElectronica = "01"; // Tipo de documento
+//   const ruc = CDCData.dRucEm.padStart(8, "0"); // RUC con padding de 8 caracteres
+//   const digitoVerificador = CDCData.dDVEmi; // Dígito verificador
+//   const establecimiento = CDCData.dEst.padStart(3, "0"); // Establecimiento (3 caracteres)
+//   const puntoExpedicion = CDCData.dPunExp.padStart(3, "0"); // Punto de expedición (3 caracteres)
+//   const numeroDocumento = CDCData.dNumDoc.padStart(7, "0"); // Número de documento (7 caracteres)
+//   const tipoContribuyente = CDCData.iTipCont; // Tipo de contribuyente (Fijo)
+//   const fechaEmision = CDCData.dFeEmiDE.slice(0, 10).replace(/-/g, ""); // Fecha de emisión en formato YYYYMMDD
+//   const tipoEmision = CDCData.iTipEmi.toString(); // Tipo de emisión
+//   const codigoDeSeguridad = CDCData.dCodSeg.toString().padStart(8, "0"); // Código de seguridad (8 caracteres)
 
-  // Construir el CDC
-  const CDC = `${facturaElectronica}${ruc}${digitoVerificador}${establecimiento}${puntoExpedicion}${numeroDocumento}${tipoContribuyente}${fechaEmision}${tipoEmision}${codigoDeSeguridad}`;
+//   // Construir el CDC
+//   const CDC = `${facturaElectronica}${ruc}${digitoVerificador}${establecimiento}${puntoExpedicion}${numeroDocumento}${tipoContribuyente}${fechaEmision}${tipoEmision}${codigoDeSeguridad}`;
 
-  return CDC;
-};
+//   return CDC;
+// };
 
-export const calcularDV = (p_numero: string):number => {
-  const p_basemax = 11;
-  p_numero = String(p_numero);
-  let v_total = 0;
-  let v_resto = 0;
-  let k = 0;
-  let v_numero_aux = 0;
-  let v_digit = 0;
-  let v_numero_al = "";
 
-  for (let i = 0; i < p_numero.length; i++) {
-    const c = Number(p_numero.charAt(i));
-    v_numero_al += c.toString();
-  }
-
-  k = 2;
-  v_total = 0;
-
-  for (let i = v_numero_al.length - 1; i >= 0; i--) {
-    if (k > p_basemax) {
-      k = 2;
-    }
-    v_numero_aux = Number(v_numero_al.charAt(i));
-    v_total += v_numero_aux * k;
-    k = k + 1;
-  }
-
-  v_resto = v_total % 11;
-  v_digit = v_resto > 1 ? 11 - v_resto : 0;
-
-  return v_digit;
-};
 
 export  const getDescription = (
   id: string | number,
@@ -345,25 +300,6 @@ export const buildItemsDet = (itemsDet: any, body: any) => {
   );
   return itemDet;
 };
-export const eliminarValoresNulos = (obj: any): any => {
-  if (Array.isArray(obj)) {
-    return obj
-      .map(eliminarValoresNulos)
-      .filter((item) => item !== null && item !== undefined);
-  }
-
-  if (obj !== null && typeof obj === "object") {
-    const cleanedObj: any = {};
-    Object.entries(obj).forEach(([key, value]) => {
-      const cleanedValue = eliminarValoresNulos(value);
-      if (cleanedValue !== null && cleanedValue !== "null") {
-        cleanedObj[key] = cleanedValue;
-      }
-    });
-    return cleanedObj;
-  }
-  return obj;
-};
 
 export const generateXml = async(invoiceData:any) => { 
   invoiceData.rDE["$"] = {"xmlns": "http://ekuatia.set.gov.py/sifen/xsd","xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance", "xsi:schemaLocation": "http://ekuatia.set.gov.py/sifen/xsd siRecepDE_v150.xsd"}
@@ -399,7 +335,6 @@ const crearStringQr = (
   IdcSC: string,
   CSC: string
 ): string => {
-  // console.log('CSC', CSC)
   return `nVersion=${qrData.nVersion}&Id=${id}&dFeEmiDE=${qrData.dFeEmiDEHex}&${qrData.docType}=${qrData.docNumber}&dTotGralOpe=${qrData.dTotGralOpe}&dTotIVA=${qrData.dTotIVA}&cItems=${qrData.cItems}&DigestValue=${qrData.DigestValueHex}&IdCSC=${IdcSC}${CSC}`;
 };
 
@@ -484,74 +419,74 @@ const crearQrUrl = (
   return `${baseUrl}nVersion=${qrData.nVersion}&Id=${id}&dFeEmiDE=${qrData.dFeEmiDEHex}&${qrData.docType}=${qrData.docNumber}&dTotGralOpe=${qrData.dTotGralOpe}&dTotIVA=${qrData.dTotIVA}&cItems=${qrData.cItems}&DigestValue=${qrData.DigestValueHex}&IdCSC=${IdcSC}&cHashQR=${hashHex}`;
 };
 
-const firmar = async (
-  xmlBuffer: string,
-  pemContent: string,
-  pubContent: string
-): Promise<string> => {
-  const sig = new SignedXml();
-  sig.signatureAlgorithm = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
-  sig.canonicalizationAlgorithm = "http://www.w3.org/2001/10/xml-exc-c14n#";
-  sig.addReference({
-    xpath: "//*[local-name(.)='DE']",
-    transforms: [
-      "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
-      "http://www.w3.org/2001/10/xml-exc-c14n#",
-    ],
-    digestAlgorithm: "http://www.w3.org/2001/04/xmlenc#sha256",
-  });
-  sig.privateKey = Buffer.from(pemContent);
-  sig.publicCert = Buffer.from(pubContent);
-  sig.getKeyInfoContent = function () {
-    return `<X509Data><X509Certificate>${Buffer.from(
-      pubContent
-    )}</X509Certificate></X509Data>`;
-  };
-  sig.computeSignature(xmlBuffer, {
-    location: { reference: "//*[local-name(.)='DE']", action: "after" },
-  }); 
-  const signedXml = sig.getSignedXml(); 
+// const firmar = async (
+//   xmlBuffer: string,
+//   pemContent: string,
+//   pubContent: string
+// ): Promise<string> => {
+//   const sig = new SignedXml();
+//   sig.signatureAlgorithm = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+//   sig.canonicalizationAlgorithm = "http://www.w3.org/2001/10/xml-exc-c14n#";
+//   sig.addReference({
+//     xpath: "//*[local-name(.)='DE']",
+//     transforms: [
+//       "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
+//       "http://www.w3.org/2001/10/xml-exc-c14n#",
+//     ],
+//     digestAlgorithm: "http://www.w3.org/2001/04/xmlenc#sha256",
+//   });
+//   sig.privateKey = Buffer.from(pemContent);
+//   sig.publicCert = Buffer.from(pubContent);
+//   sig.getKeyInfoContent = function () {
+//     return `<X509Data><X509Certificate>${Buffer.from(
+//       pubContent
+//     )}</X509Certificate></X509Data>`;
+//   };
+//   sig.computeSignature(xmlBuffer, {
+//     location: { reference: "//*[local-name(.)='DE']", action: "after" },
+//   }); 
+//   const signedXml = sig.getSignedXml(); 
 
-  return signedXml;
-};
+//   return signedXml;
+// };
 
-export const firmarDocumento = async (
-  dRucEm: string, IdcSC: string, CSC: string,
-  data: any
-): Promise<{ success: boolean; data?: any; error?: string }> => {
-  try {
-    const xmlBuffer = Buffer.from(data).toString("utf8");
-    // console.log('xmlBuffer', xmlBuffer)
-    const pemPath = path.join(__dirname, "../../certificates", `${dRucEm}.pem`);
-    const pubPath = path.join(__dirname, "../../certificates", `${dRucEm}.pub`);
-    // console.log('pemPath', pemPath)
-    if (!fs.existsSync(pemPath) || !fs.existsSync(pubPath)) {
-      return {
-        success: false,
-        error: "Certificates not found for RUC: " + dRucEm,
-      };
-    }
+// export const firmarDocumento = async (
+//   dRucEm: string, IdcSC: string, CSC: string,
+//   data: any
+// ): Promise<{ success: boolean; data?: any; error?: string }> => {
+//   try {
+//     const xmlBuffer = Buffer.from(data).toString("utf8");
+//     // console.log('xmlBuffer', xmlBuffer)
+//     const pemPath = path.join(__dirname, "../../certificates", `${dRucEm}.pem`);
+//     const pubPath = path.join(__dirname, "../../certificates", `${dRucEm}.pub`);
+//     // console.log('pemPath', pemPath)
+//     if (!fs.existsSync(pemPath) || !fs.existsSync(pubPath)) {
+//       return {
+//         success: false,
+//         error: "Certificates not found for RUC: " + dRucEm,
+//       };
+//     }
 
-    const pemContent = await fs.promises.readFile(pemPath, "utf8");
-    const pubContent = await fs.promises.readFile(pubPath, "utf8");
+//     const pemContent = await fs.promises.readFile(pemPath, "utf8");
+//     const pubContent = await fs.promises.readFile(pubPath, "utf8");
     
-    const xmlSigned = await firmar(xmlBuffer, pemContent, pubContent);
+//     const xmlSigned = await firmar(xmlBuffer, pemContent, pubContent);
 
-    const digestValue = await obtenerDigestValue(xmlSigned);
-    const qrData = await obtenerDatosQr(xmlBuffer, digestValue);
+//     const digestValue = await obtenerDigestValue(xmlSigned);
+//     const qrData = await obtenerDatosQr(xmlBuffer, digestValue);
 
-    const cdc = await obtenerCDC(xmlBuffer);
-    const concatenated = crearStringQr(qrData, cdc, IdcSC, CSC);
-    // console.log('concatenated', concatenated)
-    const hashHex = generarHash(concatenated);
+//     const cdc = await obtenerCDC(xmlBuffer);
+//     const concatenated = crearStringQr(qrData, cdc, IdcSC, CSC);
+//     // console.log('concatenated', concatenated)
+//     const hashHex = generarHash(concatenated);
 
-    const url = crearQrUrl(qrData, cdc, hashHex, IdcSC);
+//     const url = crearQrUrl(qrData, cdc, hashHex, IdcSC);
 
-    const result = await generarQRUrl(xmlSigned, url);
+//     const result = await generarQRUrl(xmlSigned, url);
 
-    return { success: true, data: result };
-  } catch (error) {
-    console.error("Error signing factura XML:", error);
-    return { success: false, error: "Internal server error" };
-  }
-};
+//     return { success: true, data: result };
+//   } catch (error) {
+//     console.error("Error signing factura XML:", error);
+//     return { success: false, error: "Internal server error" };
+//   }
+// };

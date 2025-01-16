@@ -70,7 +70,7 @@ const documentoSchemaItems = z.object({
     .number({
       invalid_type_error: "El campo dPUniProSer debe ser numérico",
     })
-    .positive({ message: "El campo dPUniProSer debe ser un número positivo" })
+    .min(0,{ message: "El campo dPUniProSer debe ser un número positivo" })
     .refine(
       (value) => {
         const [integerPart, decimalPart] = value.toString().split(".");
@@ -101,7 +101,7 @@ const documentoSchemaItems = z.object({
     .number({
       invalid_type_error: "El campo dTotBruOpeItem debe ser numérico",
     })
-    .positive({
+    .min(0,{
       message: "El campo dTotBruOpeItem debe ser un número positivo",
     })
     .refine(
@@ -224,7 +224,7 @@ const documentoSchemaItems = z.object({
     .number({
       invalid_type_error: "El campo dTotOpeItem debe ser numérico",
     })
-    .positive({
+    .min(0,{
       message: "El campo dTotOpeItem debe ser un número positivo",
     })
     .refine(
@@ -351,7 +351,7 @@ export const documentoSchema = z
     // ToDo: Revisar si pedimos o generamos el codigo de seguridad.
     dCodSeg: z
       .number({
-        invalid_type_error: "El campo dCodSeg debe ser del tipo numérico",
+        invalid_type_error: "El campo dCodSeg debe ser del tipo string numerico",
       })
       .refine((value) => /^\d{9}$/.test(value.toString()), {
         message:

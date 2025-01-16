@@ -1,169 +1,143 @@
-
-import { ZodError } from 'zod';
-import { getFirstPendingInvoice, getInvoiceJSON } from './controllers/invoiceController';
-import { sequelize } from './database';
-import { Company } from './models/company';
-import { InvoiceItem } from './models/invoiceItem';
-import { documentoSchema } from './schemas/documentoSchema';
-import { buildItemsDet, calcularDV, eliminarValoresNulos, firmarDocumento, formarCdcSinDv, generateXml, getdDenSuc, getDescription, getgCamCond, getgCamDEAsoc, getgCamFE, getgCamNCDE, getgDatRec, getgOpeCom, getgTotSub } from './controllers/helpers';
-import { dDesTiDEList, dDesTipEmiList } from './constants';
-import { ciudadesList, departamentosList, distritosList } from './geographic';
+import { getFirstPendingInvoiceData, getInvoiceJSON } from "./controllers/invoiceController";
+import { sequelize } from "./database";
+import { buildItemsDet, getdDenSuc, getDescription, getgCamCond, getgCamDEAsoc, getgCamFE, getgCamNCDE, getgDatRec, getgOpeCom, getgTotSub } from "./controllers/helpers";
+import { dDesTiDEList, dDesTipEmiList } from "./constants";
+import { ciudadesList, departamentosList, distritosList } from "./geographic";
+import { getCDCSinDv, validateJSON, eliminarValoresNulos, calcularDV, getXMLFromDocumento, getFullXML, signXML } from "./controllers/documentController";
+import clipboard from 'clipboardy';
 
 // test database connection with sequelize
-sequelize.authenticate().then(() => {
-    console.log('Connection has been established successfully.');
-    main();
-}).catch((error) => {
-    console.error('Unable to connect to the database:', error);
-})
+sequelize
+  .authenticate()
+  .then(() => {
+    console.log("Connection has been established successfully.");
+    processInvoice();
+  })
+  .catch((error) => {
+    console.error("Unable to connect to the database:", error);
+  });
 
-async function main() {
-  const invoice = await getFirstPendingInvoice();
+async function processInvoice() {
+  const { invoice, company, invoiceItems } = await getFirstPendingInvoiceData();
   if (!invoice) {
-      console.log("No pending invoices found");
-      return;
+    console.log("No pending invoices found");
+    return;
   }
-  const company = await Company.findOne({where: {id: invoice.companyId}});
-  if (!company) {
-      console.log("Company not found");
-      return;
-  }
-  const invoiceItems = await InvoiceItem.findAll({where: {invoiceId: invoice.id}});
-  if (!invoiceItems) {
-      console.log("No invoice items found");
-      return;
-  }
+
   const invoiceJSON = await getInvoiceJSON(invoice, company, invoiceItems);
-  if(!invoiceJSON){
+  if (!invoiceJSON) {
     console.log("Error generating invoice JSON");
     return;
   }
-  console.log('invoiceJSON.cActEco', invoiceJSON.cActEco)
-  console.log('invoiceJSON.dDesActEco', invoiceJSON.dDesActEco)
+
   // test with zod
-  try{
-    documentoSchema.parse(invoiceJSON);
-  }catch(err){
-    if (err instanceof ZodError) {
-      const simplifiedErrors = err.errors.map((error) => ({
-        field: error.path.length > 0 ? error.path.join(".") : undefined,
-        message: error.message,
-      }));
-      return console.log(simplifiedErrors)
-    } else {
-      return console.log("Error desconocido:", err );
-    }
+  const isValid = await validateJSON(invoiceJSON);
+  if (!isValid.success) {
+    console.log("Error validating JSON", isValid.errors);
+    return;
   }
 
-  interface CDCData {
-    dEst: string;
-    dPunExp: string;
-    dNumDoc: string;
-    dFeEmiDE: string;
-    dCodSeg: string;
-    iTipCont: string;
-    dRucEm: string;
-    dDVEmi: string;
-    iTipEmi: string;
-  }
-  const CDCData: CDCData = {
-    dEst: invoiceJSON.dEst,
-    dPunExp: invoiceJSON.dPunExp,
-    dNumDoc: invoiceJSON.dNumDoc,
-    dFeEmiDE: invoiceJSON.dFeEmiDE,
-    dCodSeg: invoiceJSON.dCodSeg,
-    iTipCont: invoiceJSON.iTipCont,
-    dRucEm: invoiceJSON.dRucEm,
-    dDVEmi: invoiceJSON.dDVEmi.toString(),
-    iTipEmi: invoiceJSON.iTipEmi.toString()
-  }
-  const cdcSinDv: string | null = formarCdcSinDv(CDCData);
+  console.log("JSON isValid!");
+
+  const cdcSinDv: string | null = getCDCSinDv(invoiceJSON);
 
   if (!cdcSinDv) {
-    return console.log("Fallo en la formación del CDC sin DV")
-    // Marcar en base de datos como error
+    // TODO: Marcar en base de datos como error ( y en todos los lugares donde se maneje el error)
+    return console.log("Fallo en la formación del CDC sin DV");
   }
-  const dv = calcularDV(cdcSinDv);
-  let cdc = `${cdcSinDv}${dv}`; 
 
-  // 
+  const dv = calcularDV(cdcSinDv);
+  let cdc = `${cdcSinDv}${dv}`;
+  
+  // old way is commented
   const documentoConNulos = {
-    rDE: {
-      $:{
-        "xmlns":"http://ekuatia.set.gov.py/sifen/xsd",
-        "xmlns:xsi":"http://www.w3.org/2001/XMLSchema-instance",
-        "xsi:schemaLocation":"http://ekuatia.set.gov.py/sifen/xsd siRecepDE_v150.xsd"
+    // rDE: {
+    //   $:{
+    //     "xmlns":"http://ekuatia.set.gov.py/sifen/xsd",
+    //     "xmlns:xsi":"http://www.w3.org/2001/XMLSchema-instance",
+    //     "xsi:schemaLocation":"http://ekuatia.set.gov.py/sifen/xsd siRecepDE_v150.xsd"
+    //   },
+    //   dVerFor: 150,
+    DE: {
+      $: {
+        Id: cdc,
       },
-      dVerFor: 150,
-      DE: {
-        $:{
-          "Id": cdc,
-        },
-        dDVId: dv,
-        dFecFirma: "2024-12-04T12:12:07",
-        dSisFact: 1,
-        gOpeDE: {
-          iTipEmi: invoiceJSON.iTipEmi,
-          dDesTipEmi: getDescription(invoiceJSON.iTipEmi, dDesTipEmiList),
-          dCodSeg: invoiceJSON.dCodSeg,
-        },
-        gTimb: {
-          iTiDE: invoiceJSON.iTiDE,
-          dDesTiDE: getDescription(invoiceJSON.iTiDE, dDesTiDEList),
-          dNumTim: invoiceJSON.dNumTim,
-          dEst: invoiceJSON.dEst,
-          dPunExp: invoiceJSON.dPunExp,
-          dNumDoc: invoiceJSON.dNumDoc,
-          dFeIniT: invoiceJSON.dFeIniT,
-        },
-        gDatGralOpe: {
-          dFeEmiDE: invoiceJSON.dFeEmiDE,
-          gOpeCom: getgOpeCom(invoiceJSON),
-          gEmis:{
-            dRucEm: invoiceJSON.dRucEm,
-            dDVEmi: invoiceJSON.dDVEmi,
-            iTipCont: invoiceJSON.iTipCont, 
-            dNomEmi: invoiceJSON.dNomEmi,
-            dDirEmi: invoiceJSON.dDirEmi,
-            dNumCas: invoiceJSON.dNumCas,
-            cDepEmi: invoiceJSON.cDepEmi,
-            dDesDepEmi: getDescription(invoiceJSON.cDepEmi, departamentosList),
-            cDisEmi:invoiceJSON.cDisEmi,
-            dDesDisEmi: getDescription(invoiceJSON.cDisEmi, distritosList),
-            cCiuEmi: invoiceJSON.cCiuEmi,
-            dDesCiuEmi: getDescription(invoiceJSON.cCiuEmi, ciudadesList),
-            dTelEmi: invoiceJSON.dTelEmi,
-            dEmailE: invoiceJSON.dEmailE,
-            dDenSuc: getdDenSuc(invoiceJSON),
-            gActEco:{
-              cActEco: invoiceJSON.cActEco,
-              dDesActEco: invoiceJSON.dDesActEco
-            }
+      dDVId: dv,
+      dFecFirma: "2024-12-04T12:12:07",
+      dSisFact: 1,
+      gOpeDE: {
+        iTipEmi: invoiceJSON.iTipEmi,
+        dDesTipEmi: getDescription(invoiceJSON.iTipEmi, dDesTipEmiList),
+        dCodSeg: invoiceJSON.dCodSeg,
+      },
+      gTimb: {
+        iTiDE: invoiceJSON.iTiDE,
+        dDesTiDE: getDescription(invoiceJSON.iTiDE, dDesTiDEList),
+        dNumTim: invoiceJSON.dNumTim,
+        dEst: invoiceJSON.dEst,
+        dPunExp: invoiceJSON.dPunExp,
+        dNumDoc: invoiceJSON.dNumDoc,
+        dFeIniT: invoiceJSON.dFeIniT,
+      },
+      gDatGralOpe: {
+        dFeEmiDE: invoiceJSON.dFeEmiDE,
+        gOpeCom: getgOpeCom(invoiceJSON),
+        gEmis: {
+          dRucEm: invoiceJSON.dRucEm,
+          dDVEmi: invoiceJSON.dDVEmi,
+          iTipCont: invoiceJSON.iTipCont,
+          dNomEmi: invoiceJSON.dNomEmi,
+          dDirEmi: invoiceJSON.dDirEmi,
+          dNumCas: invoiceJSON.dNumCas,
+          cDepEmi: invoiceJSON.cDepEmi,
+          dDesDepEmi: getDescription(invoiceJSON.cDepEmi, departamentosList),
+          cDisEmi: invoiceJSON.cDisEmi,
+          dDesDisEmi: getDescription(invoiceJSON.cDisEmi, distritosList),
+          cCiuEmi: invoiceJSON.cCiuEmi,
+          dDesCiuEmi: getDescription(invoiceJSON.cCiuEmi, ciudadesList),
+          dTelEmi: invoiceJSON.dTelEmi,
+          dEmailE: invoiceJSON.dEmailE,
+          dDenSuc: getdDenSuc(invoiceJSON),
+          gActEco: {
+            cActEco: invoiceJSON.cActEco,
+            dDesActEco: invoiceJSON.dDesActEco,
           },
-          gDatRec: getgDatRec(invoiceJSON)
         },
-        gDtipDE:{
-          gCamFE: getgCamFE(invoiceJSON),
-          gCamNCDE: getgCamNCDE(invoiceJSON),
-          // gCamNRE: getgCamNRE(),
-          gCamCond: getgCamCond(invoiceJSON),
-          // gTransp: getgTransp(),
-          gCamItem: buildItemsDet(invoiceJSON.itemsDet, invoiceJSON), 
-        },
-        gTotSub: getgTotSub(invoiceJSON),
-        gCamDEAsoc: getgCamDEAsoc(invoiceJSON),
+        gDatRec: getgDatRec(invoiceJSON),
       },
-      gCamFuFD:{
-        dCarQR:''
-      }
+      gDtipDE: {
+        gCamFE: getgCamFE(invoiceJSON),
+        gCamNCDE: getgCamNCDE(invoiceJSON),
+        // gCamNRE: getgCamNRE(),
+        gCamCond: getgCamCond(invoiceJSON),
+        // gTransp: getgTransp(),
+        gCamItem: buildItemsDet(invoiceJSON.itemsDet, invoiceJSON),
+      },
+      gTotSub: getgTotSub(invoiceJSON),
+      gCamDEAsoc: getgCamDEAsoc(invoiceJSON),
     },
-  }; 
+    // ,
+    // gCamFuFD:{
+    //   dCarQR:''
+    // }
+    // },
+  };
 
   const documento = eliminarValoresNulos(documentoConNulos);
-  // console.log('documento', documento)
-  const xmlPrefirma = await generateXml(documento);
-  // console.log(xmlPrefirma);
-  const {dRucEm, IdcSC, CSC} = invoiceJSON;
-  const xmlPostFirma = await firmarDocumento(dRucEm, IdcSC, CSC, xmlPrefirma);
-  console.log(xmlPostFirma.data);
+  const xml = getXMLFromDocumento(documento);
+  if (!xml) {
+    return console.log("Error generating XML from Documento");
+  }
+
+  const securityCode = invoice.securityCode;
+  const xmlPrefirma = await getFullXML(xml, cdcSinDv, dv, securityCode);
+  if (!xmlPrefirma) {
+    return console.log("Error generating XML Prefirma");
+  }
+  const xmlBuffer = Buffer.from(xmlPrefirma).toString("utf8");
+  const { dRucEm, IdcSC, CSC } = invoiceJSON;
+  const xmlSigned = await signXML(xmlBuffer, dRucEm, cdc, IdcSC, CSC);
+  console.log('Firmado!');
+  clipboard.writeSync(xmlSigned);
+  return ;
 }

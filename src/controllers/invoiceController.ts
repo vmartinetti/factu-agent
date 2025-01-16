@@ -4,18 +4,49 @@ import { NODE_ENV } from "../config";
 import { InvoiceItem } from "../models/invoiceItem";
 import moment from "moment";
 
-export async function getFirstPendingInvoice() {
-  const invoice = Invoice.findOne({
-    where: {
-      annulled: false,
-      sifenStatus: "PENDIENTE"
-      // sifen status is pending
-    },
-  });
-  if (!invoice) {
-    return null;
+export async function getFirstPendingInvoiceData() {
+  let invoice;
+  try {
+    invoice = await Invoice.findOne({
+      where: {
+        annulled: false,
+        sifenStatus: "PENDIENTE",
+      },
+      logging: false,
+    });
+    if (!invoice) {
+      return { invoice: null, company: null, invoiceItems: null };
+    }
+  } catch (error) {
+    console.log("Error getting first pending invoice", error);
+    return { invoice: null, company: null, invoiceItems: null };
   }
-  return invoice;
+  let company;
+  try {
+    company = await Company.findOne({ where: { id: invoice.companyId }, logging: false });
+    if (!company) {
+      console.log("Company not found");
+      return { invoice: null, company: null, invoiceItems: null };
+    }
+  } catch (error) {
+    console.log("Error getting company", error);
+    return { invoice: null, company: null, invoiceItems: null };
+  }
+  let invoiceItems;
+  try {
+    invoiceItems = await InvoiceItem.findAll({ where: { invoiceId: invoice.id }, logging: false, raw: true });
+    if (!invoiceItems) {
+      console.log("No invoice items found");
+      return { invoice: null, company: null, invoiceItems: null };
+    }
+  } catch (error) {
+    console.log("Error getting invoice items", error);
+    return { invoice: null, company: null, invoiceItems: null };
+  }
+  if (!invoiceItems.length) {
+    return { invoice: null, company: null, invoiceItems: null };
+  }
+  return { invoice, company, invoiceItems };
 }
 
 export async function getAllPendingInvoicesByCustomer(customerDocId: string) {
@@ -34,15 +65,15 @@ export async function getAllPendingInvoicesByCustomer(customerDocId: string) {
 
 export async function getInvoiceJSON(invoice: Invoice, company: Company, invoiceItems: InvoiceItem[]) {
   const dDVEmiString = company.ruc.split("-")[1];
-  if(!dDVEmiString) return null;
+  if (!dDVEmiString) return null;
   const dRucEm = company.ruc.split("-")[0];
   const dRucRec = invoice.customerDocId.split("-")[0];
   const dDVRecString = invoice.customerDocId.split("-")[1];
-  if(!dDVRecString) return null;
+  if (!dDVRecString) return null;
   const dDVRec = parseInt(dDVRecString);
   const invoiceJSONWithNull = {
-    IdcSC: NODE_ENV === "development" ? '0001' : String(company.idCSC).padStart(4, "0"),
-    CSC: NODE_ENV === "development" ? 'ABCD0000000000000000000000000000' : company.CSC,
+    IdcSC: NODE_ENV === "development" ? "0001" : String(company.idCSC).padStart(4, "0"),
+    CSC: NODE_ENV === "development" ? "ABCD0000000000000000000000000000" : company.CSC,
     iTipEmi: 1,
     dCodSeg: invoice.securityCode,
     iTiDE: 1, //Factura
@@ -51,7 +82,7 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
     dPunExp: invoice.salespointPunto.toString().padStart(3, "0"),
     dNumDoc: invoice.number.toString().padStart(7, "0"),
     dFeIniT: invoice.salespointValidSince,
-    dFeEmiDE: moment(invoice.dateTimeIssued, 'YYYY-MM-DD HH:mm:ss').format('YYYY-MM-DDTHH:mm:ss'),
+    dFeEmiDE: moment(invoice.dateTimeIssued, "YYYY-MM-DD HH:mm:ss").format("YYYY-MM-DDTHH:mm:ss"),
     iTImp: 1, // IVA
     iTipTra: 3, // 1-Venta de merc, 2-Prestación serv, 3- mixto
     cMoneOpe: invoice.currencyCode,
@@ -79,7 +110,7 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
     iNatRec: invoice.customerDocId.includes("-") ? 1 : 2,
     iTiOpe: invoice.customerDocId.includes("-") && invoice.customerDocId.startsWith("800") ? 1 : 2,
     cPaisRec: "PRY",
-    iTiContRec: invoice.customerDocId.includes("-") ? invoice.customerDocId.startsWith("800") ? 1 : 2 : null,
+    iTiContRec: invoice.customerDocId.includes("-") ? (invoice.customerDocId.startsWith("800") ? 1 : 2) : null,
     dDVRec: dDVRec,
     dRucRec: dRucRec,
     dNomRec: invoice.customerName,
@@ -100,7 +131,7 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
     iTiPago: invoice.condition === "CONTADO" ? 1 : null,
     dMonTiPag: invoice.condition === "CONTADO" ? Number(invoice.total) : null,
     cMoneTiPag: invoice.condition === "CONTADO" ? invoice.currencyCode : null,
-    dDMoneTiPag: invoice.condition === "CONTADO" ? invoice.currencyCode === "PYG" ? "Guaraní" : "Dolar" : null,
+    dDMoneTiPag: invoice.condition === "CONTADO" ? (invoice.currencyCode === "PYG" ? "Guaraní" : "Dolar") : null,
     // dTiCamTIPag tipo de cambio para moneda extranjera
     iCondCred: invoice.condition === "CREDITO" ? 1 : null,
     dDCondCred: invoice.condition === "CREDITO" ? "Plazo" : null,
@@ -119,11 +150,11 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
     dDescTotal: 0,
     dAnticipo: 0,
     dRedon: 0, //TODO: check this to EESS Surtidores
-    dTotGralOpe: Number(invoice.total),    
+    dTotGralOpe: Number(invoice.total),
     dIVA5: invoice.iva5Total > 0 ? Number(invoice.iva5Total) : 0,
     dIVA10: invoice.iva10Total > 0 ? Number(invoice.iva10Total) : 0,
     dTotIVA: Number(invoice.iva5Total) + Number(invoice.iva10Total),
-    dBaseGrav5: invoice.gravada5Total > 0 ? Number(invoice.gravada5Total) - Number(invoice.iva5Total)  : 0,
+    dBaseGrav5: invoice.gravada5Total > 0 ? Number(invoice.gravada5Total) - Number(invoice.iva5Total) : 0,
     dBaseGrav10: invoice.gravada10Total > 0 ? Number(invoice.gravada10Total) - Number(invoice.iva10Total) : 0,
     dTBasGraIVA: Number(invoice.gravada5Total) + Number(invoice.gravada10Total) - Number(invoice.iva5Total) - Number(invoice.iva10Total),
     // dTotalGs: TODO: to check when USD is used
@@ -143,15 +174,16 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
       dPropIVA: 100,
       dTasaIVA: item.iva,
       dBasGravIVA: Number(item.subTotal) - Number(item.iva5SubTotal) - Number(item.iva10SubTotal),
-      dLiqIVAItem: Number(item.iva5SubTotal) + Number(item.iva10SubTotal)
-    }))
+      dLiqIVAItem: Number(item.iva5SubTotal) + Number(item.iva10SubTotal),
+    })),
   };
   // remove all null values
   const invoiceJSON = Object.entries(invoiceJSONWithNull)
-  .filter(([_key, value]) => value !== null)  // Filter out properties with null values
-  .reduce((acc: { [key: string]: any }, [key, value]) => {
-    acc[key] = value;  // Rebuild the object without null values
-    return acc;
-  }, {} as { [key: string]: any });
+    .filter(([_key, value]) => value !== null) // Filter out properties with null values
+    .reduce((acc: { [key: string]: any }, [key, value]) => {
+      acc[key] = value; // Rebuild the object without null values
+      return acc;
+    }, {} as { [key: string]: any });
   return invoiceJSON;
 }
+
