@@ -31,6 +31,9 @@ export class Invoice extends Model {
   declare dateTimeIssued: string;
   declare currencyCode: string;
   declare sifenStatus: string;
+  declare xml: string;
+  declare CDC: string;
+  declare zipId: number;
 }
 
 Invoice.init({
@@ -65,7 +68,10 @@ Invoice.init({
   securityCode: DataTypes.STRING,
   dateTimeIssued: DataTypes.STRING,
   currencyCode: DataTypes.STRING,
-  sifenStatus: DataTypes.STRING
+  sifenStatus: DataTypes.STRING,
+  xml: DataTypes.STRING,
+  CDC: DataTypes.STRING,
+  zipId: DataTypes.NUMBER
 }, {
   sequelize,
   tableName: 'invoice',

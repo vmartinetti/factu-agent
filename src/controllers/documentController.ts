@@ -2,7 +2,7 @@ import { ZodError } from "zod";
 import { documentoSchema } from "../schemas/documentoSchema";
 import xml2js from "xml2js";
 import { xmlToJsonUtil } from "xml-to-json-util";
-import {SignedXml} from "xml-crypto";
+import { SignedXml } from "xml-crypto";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
@@ -124,7 +124,7 @@ export function getXMLFromDocumento(doc: any): string | null {
   }
 }
 // digipar-xml-remision-signer
-export function getFullXML(xml: string, cdcSinDv: string, dv: number, securityCode: string): string {
+export function getFullXML(xml: string, cdcSinDv: string, dv: number, _securityCode: string): string {
   try {
     const parsedXml = xmlToJsonUtil(xml);
     const xmlResult = {
@@ -137,29 +137,44 @@ export function getFullXML(xml: string, cdcSinDv: string, dv: number, securityCo
       },
     };
     // Construye el objeto XML completo
+    // const obj = {
+    //   "soap:Envelope": {
+    //     $: { "xmlns:soap": "http://www.w3.org/2003/05/soap-envelope" },
+    //     "soap:Header": {},
+    //     "soap:Body": {
+    //       rEnviDe: {
+    //         $: { xmlns: "http://ekuatia.set.gov.py/sifen/xsd" },
+    //         dId: securityCode,
+    //         xDE: {
+    //           rDE: {
+    //             $: {
+    //               xmlns: "http://ekuatia.set.gov.py/sifen/xsd",
+    //               "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+    //               "xsi:schemaLocation": "http://ekuatia.set.gov.py/sifen/xsd siRecepDE_v150.xsd",
+    //             },
+    //             dVerFor: 150,
+    //             ...xmlResult,
+    //             gCamFuFD: {
+    //               dCarQR: {},
+    //             },
+    //           },
+    //         },
+    //       },
+    //     },
+    //   },
+    // };
+    // construye el objeto XML solo del rDE
     const obj = {
-      "soap:Envelope": {
-        $: { "xmlns:soap": "http://www.w3.org/2003/05/soap-envelope" },
-        "soap:Header": {},
-        "soap:Body": {
-          rEnviDe: {
-            $: { xmlns: "http://ekuatia.set.gov.py/sifen/xsd" },
-            dId: securityCode,
-            xDE: {
-              rDE: {
-                $: {
-                  xmlns: "http://ekuatia.set.gov.py/sifen/xsd",
-                  "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
-                  "xsi:schemaLocation": "http://ekuatia.set.gov.py/sifen/xsd siRecepDE_v150.xsd",
-                },
-                dVerFor: 150,
-                ...xmlResult,
-                gCamFuFD: {
-                  dCarQR: {},
-                },
-              },
-            },
-          },
+      rDE: {
+        $: {
+          xmlns: "http://ekuatia.set.gov.py/sifen/xsd",
+          "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+          "xsi:schemaLocation": "http://ekuatia.set.gov.py/sifen/xsd siRecepDE_v150.xsd",
+        },
+        dVerFor: 150,
+        ...xmlResult,
+        gCamFuFD: {
+          dCarQR: {},
         },
       },
     };
@@ -176,33 +191,32 @@ export const keyProvider = {
   },
 
   getKeyInfo: (filePath: string) => {
-    const keyContent = keyProvider.getKey(filePath).replace(/\n|\r/g, ''); 
+    const keyContent = keyProvider.getKey(filePath).replace(/\n|\r/g, "");
     return `<X509Data><X509Certificate>${keyContent}</X509Certificate></X509Data>`;
-  }
-}
-
-async function getDigestValue(xml: string): Promise<string>  {
-  const result = await parser.parseStringPromise(xml); 
-  const digestValue = result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0][
-    "Signature"
-    ][0]["SignedInfo"][0]["Reference"][0]["DigestValue"][0];
-    return digestValue; 
+  },
 };
+
+async function getDigestValue(xml: string): Promise<string> {
+  
+  const result = await parser.parseStringPromise(xml);
+  // const digestValue = result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0]["Signature"][0]["SignedInfo"][0]["Reference"][0]["DigestValue"][0];
+  const digestValue = result["rDE"]["Signature"][0]["SignedInfo"][0]["Reference"][0]["DigestValue"][0];
+  return digestValue;
+}
 
 async function getSHA256Hash(inputString: string): Promise<string> {
   const encoder = new TextEncoder(); // Uses UTF-8 encoding by default
   const data = encoder.encode(inputString);
 
   // Apply SHA-256 hash
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+
   // Convert hash to hex
   const hashArray = Array.from(new Uint8Array(hashBuffer)); // Create byte array
-  const hashHex = hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
-  
+  const hashHex = hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");
+
   return hashHex;
 }
-
 
 async function getQRData(xml: string, digestValue: string) {
   let docType = "";
@@ -211,8 +225,10 @@ async function getQRData(xml: string, digestValue: string) {
   let dTotGralOpe = 0;
   let dTotIVA = 0;
 
-  const nVersion = result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0]["dVerFor"][0];
-  const DE = result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0]["DE"][0];
+  // const nVersion = result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0]["dVerFor"][0];
+  // const DE = result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0]["DE"][0];
+  const nVersion = result["rDE"]["dVerFor"][0];
+  const DE = result["rDE"]["DE"][0];
   const dFeEmiDE = DE["gDatGralOpe"][0]["dFeEmiDE"][0];
   const dFeEmiDEHex = Buffer.from(dFeEmiDE).toString("hex");
 
@@ -245,16 +261,17 @@ async function getQRData(xml: string, digestValue: string) {
     DigestValueHex,
     iTiDE,
   };
-};
+}
 
-const writeQRUrl = (xml:string, url:string) => {
+const writeQRUrl = (xml: string, url: string) => {
   let xmlWithUrl = "";
   parser.parseString(xml, function (err, result) {
     if (err) {
       console.error("Error parsing XML in writeQRUrl:", err);
       return;
     }
-    result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0]["gCamFuFD"][0]["dCarQR"] = url;
+    // result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0]["gCamFuFD"][0]["dCarQR"] = url;
+    result["rDE"]["gCamFuFD"][0]["dCarQR"] = url;
     const builder = new xml2js.Builder({
       renderOpts: { pretty: false },
       headless: true,
@@ -266,7 +283,7 @@ const writeQRUrl = (xml:string, url:string) => {
 
 export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: string, CSC: string): Promise<string> {
   try {
-    const projectRoot = path.resolve(__dirname, '../../certificates/'); 
+    const projectRoot = path.resolve(__dirname, "../../certificates/");
     const certificadoPemPath = path.join(projectRoot, `${ruc}.pem`);
     const certificadoPubPath = path.join(projectRoot, `${ruc}.pub`);
 
@@ -279,27 +296,20 @@ export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: stri
       return "";
     }
 
-    const certificadoPem = fs.readFileSync(certificadoPemPath, 'utf8');
+    const certificadoPem = fs.readFileSync(certificadoPemPath, "utf8");
     // const certificadoPub = fs.readFileSync(certificadoPubPath, 'utf8');
 
     const sig = new SignedXml();
     sig.signatureAlgorithm = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
     sig.canonicalizationAlgorithm = "http://www.w3.org/2001/10/xml-exc-c14n#";
 
-    sig.addReference(
-      "//*[local-name(.)='DE']",
-      [
-        "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
-        "http://www.w3.org/2001/10/xml-exc-c14n#"
-      ],
-      "http://www.w3.org/2001/04/xmlenc#sha256"
-    );
+    sig.addReference("//*[local-name(.)='DE']", ["http://www.w3.org/2000/09/xmldsig#enveloped-signature", "http://www.w3.org/2001/10/xml-exc-c14n#"], "http://www.w3.org/2001/04/xmlenc#sha256");
 
     sig.signingKey = Buffer.from(certificadoPem);
     sig.keyInfoProvider = {
       file: certificadoPubPath,
-      getKey: () => Buffer.from(keyProvider.getKey(certificadoPubPath)), 
-      getKeyInfo: () => keyProvider.getKeyInfo(certificadoPubPath), 
+      getKey: () => Buffer.from(keyProvider.getKey(certificadoPubPath)),
+      getKeyInfo: () => keyProvider.getKeyInfo(certificadoPubPath),
     };
 
     sig.computeSignature(xml, {
@@ -329,10 +339,7 @@ export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: stri
 
     let concatenated = `nVersion=${nVersion}&Id=${cdc}&dFeEmiDE=${dFeEmiDEHex}&${docType}=${docNumber}&dTotGralOpe=${dTotGralOpe}&dTotIVA=${dTotIVA}&cItems=${cItems}&DigestValue=${DigestValueHex}&IdCSC=${IdcSC}${CSC}`;
     const hashHex = await getSHA256Hash(concatenated);
-    const baseUrl =
-        NODE_ENV === "production"
-          ? "https://ekuatia.set.gov.py/consultas/qr?"
-          : "https://ekuatia.set.gov.py/consultas-test/qr?";
+    const baseUrl = NODE_ENV === "production" ? "https://ekuatia.set.gov.py/consultas/qr?" : "https://ekuatia.set.gov.py/consultas-test/qr?";
     let url = `${baseUrl}nVersion=${nVersion}&Id=${cdc}&dFeEmiDE=${dFeEmiDEHex}&${docType}=${docNumber}&dTotGralOpe=${dTotGralOpe}&dTotIVA=${dTotIVA}&cItems=${cItems}&DigestValue=${DigestValueHex}&IdCSC=${IdcSC}&cHashQR=${hashHex}`;
     const signedXmlWithQR = writeQRUrl(xmlSigned, url);
     return signedXmlWithQR;

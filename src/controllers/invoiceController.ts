@@ -3,7 +3,50 @@ import { Invoice } from "../models/invoice";
 import { NODE_ENV } from "../config";
 import { InvoiceItem } from "../models/invoiceItem";
 import moment from "moment";
+import { Op } from "sequelize";
 
+export async function getFirstNoZippedInvoice() {
+  try{
+    const invoice = await Invoice.findOne({
+      where: {
+        annulled: false,
+        sifenStatus: "PENDIENTE",
+        CDC: { [Op.ne]: null },
+        zipId: null,
+      },
+      order: [["createdAt", "ASC"]],
+      logging: false,
+    });
+    if (!invoice) {
+      return null;
+    }
+    return invoice;
+  } catch (error) {
+    console.log("Error getting first no zipped invoice", error);
+    return null;
+  }
+}
+
+export async function getAllNoZippedInvoicesByCompany(companyId: string) {
+  try {
+    const invoices = await Invoice.findAll({
+      where: {
+        companyId,
+        annulled: false,
+        sifenStatus: "PENDIENTE",
+        CDC: { [Op.ne]: null },
+        zipId: null,
+      },
+      limit: 50,
+      order: [["createdAt", "ASC"]],
+      logging: false,
+    });
+    return invoices;
+  } catch (error) {
+    console.log("Error getting all no zipped invoices by company", error);
+    return [];
+  }
+}
 export async function getFirstPendingInvoiceData() {
   let invoice;
   try {
@@ -11,6 +54,7 @@ export async function getFirstPendingInvoiceData() {
       where: {
         annulled: false,
         sifenStatus: "PENDIENTE",
+        CDC: null,
       },
       logging: false,
     });

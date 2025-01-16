@@ -1,9 +1,10 @@
-import { getFirstPendingInvoiceData, getInvoiceJSON } from "./controllers/invoiceController";
+import { getAllNoZippedInvoicesByCompany, getFirstNoZippedInvoice, getFirstPendingInvoiceData, getInvoiceJSON } from "./controllers/invoiceController";
 import { sequelize } from "./database";
 import { buildItemsDet, getdDenSuc, getDescription, getgCamCond, getgCamDEAsoc, getgCamFE, getgCamNCDE, getgDatRec, getgOpeCom, getgTotSub } from "./controllers/helpers";
 import { dDesTiDEList, dDesTipEmiList } from "./constants";
 import { ciudadesList, departamentosList, distritosList } from "./geographic";
 import { getCDCSinDv, validateJSON, eliminarValoresNulos, calcularDV, getXMLFromDocumento, getFullXML, signXML } from "./controllers/documentController";
+import { Invoice } from "./models/invoice";
 import clipboard from 'clipboardy';
 
 // test database connection with sequelize
@@ -12,6 +13,8 @@ sequelize
   .then(() => {
     console.log("Connection has been established successfully.");
     processInvoice();
+    createInvoicesZip();
+    sendZipToSIFEN();
   })
   .catch((error) => {
     console.error("Unable to connect to the database:", error);
@@ -20,7 +23,7 @@ sequelize
 async function processInvoice() {
   const { invoice, company, invoiceItems } = await getFirstPendingInvoiceData();
   if (!invoice) {
-    console.log("No pending invoices found");
+    console.log("No pending xml/sign invoices found");
     return;
   }
 
@@ -124,7 +127,81 @@ async function processInvoice() {
   const xmlBuffer = Buffer.from(xmlPrefirma).toString("utf8");
   const { dRucEm, IdcSC, CSC } = invoiceJSON;
   const xmlSigned = await signXML(xmlBuffer, dRucEm, cdc, IdcSC, CSC);
-  console.log('Firmado!');
+  // save xmlSigned and CDC to database
+  try{
+    await invoice.update({
+      xml: xmlSigned,
+      CDC: cdc
+    });
+    console.log('Firmado!');
+  } catch{
+    console.log('Error saving xmlSigned and CDC to database');
+  }
   clipboard.writeSync(xmlSigned);
   return ;
+}
+
+async function createInvoicesZip() {
+  const invoice = await getFirstNoZippedInvoice();
+  if (!invoice) {
+    console.log("No pending zip invoices found");
+    return;
+  }
+  console.log('First invoice customer', invoice.companyId)
+  const invoices = await getAllNoZippedInvoicesByCompany(invoice.companyId);
+  if (!invoices.length) {
+    console.log("No pending zip invoices found");
+    return;
+  }
+  console.log('Invoices to zip', invoices.length)
+  // create zip record
+  // const zip = await Zip.create({
+  // fake create zip record
+  const zipId = Number(String(new Date().getTime()).slice(0, 9));
+  // update invoices with zipId with a transaction
+  const t = await sequelize.transaction();
+  try {
+    for (const inv of invoices) {
+      await inv.update({ zipId: zipId }, { transaction: t });
+    }
+    await t.commit();
+    console.log("Invoices zipped! id:", zipId);
+  } catch (error) {
+    await t.rollback();
+    console.log("Error zipping invoices", error);
+  }
+}
+
+async function sendZipToSIFEN() {
+  // get zip invoices
+  // const zip = await Zip.findOne({ where: { status: 'PENDIENTE' } });
+  // fake get zip
+  const zip = { id: 173706043 };
+  if (!zip) {
+    console.log("No pending zip found");
+    return;
+  }
+  const invoices = await Invoice.findAll({attributes: ['id','xml','CDC'], where: { zipId: zip.id } });
+
+  if (!invoices.length) {
+    console.log("No zip invoices found");
+    return;
+  }
+  // extract the <rDE> from each invoice using parser
+  const rDEs = invoices.map((inv) => {
+    const rDE = inv.xml;
+    return rDE;
+  });
+
+  console.log('rDEs', rDEs)
+  // clipboard.writeSync(rDEs.join('\n'));
+  console.log('rDEs joined!')
+  // send zip to TiSIFEN
+  // const response = await sendZipToTiSIFEN(zip);
+  // if (response) {
+  //   await zip.update({ sent: true });
+  //   console.log("Zip sent to TiSIFEN");
+  // }
+  // console.log("Error sending zip to TiSIFEN");
+  // return;
 }
