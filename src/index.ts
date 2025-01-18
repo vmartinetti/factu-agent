@@ -1,14 +1,18 @@
-import { getAllNoZippedInvoicesByCompany, getFirstNoZippedInvoice, getFirstPendingInvoiceData, getInvoiceJSON } from "./controllers/invoiceController";
+import { getAllInvoices, getAllNoZippedInvoicesByCompany, getFirstNoZippedInvoice, getFirstPendingInvoiceData, getInvoiceJSON, updateInvoice } from "./controllers/invoiceController";
 import { sequelize } from "./database";
 import { buildItemsDet, getdDenSuc, getDescription, getgCamCond, getgCamDEAsoc, getgCamFE, getgCamNCDE, getgDatRec, getgOpeCom, getgTotSub } from "./controllers/helpers";
 import { dDesTiDEList, dDesTipEmiList } from "./constants";
 import { ciudadesList, departamentosList, distritosList } from "./geographic";
 import { getCDCSinDv, validateJSON, eliminarValoresNulos, calcularDV, getXMLFromDocumento, getFullXML, signXML } from "./controllers/documentController";
-import { Invoice } from "./models/invoice";
-import clipboard from "clipboardy";
+// import clipboard from "clipboardy";
 import fs from "fs";
 import archiver from "archiver";
-import { sentZipToSIFEN } from "./controllers/sifenController";
+import { sendZip } from "./controllers/sifenController";
+import { createEmptyZip, getFirstPendingZip } from "./controllers/zipController";
+import { getCompany } from "./controllers/company";
+import xml2js from "xml2js";
+
+const parser = new xml2js.Parser({ explicitArray: false });
 
 // test database connection with sequelize
 sequelize
@@ -130,38 +134,35 @@ async function processInvoice() {
   const xmlBuffer = Buffer.from(xmlPrefirma).toString("utf8");
   const { dRucEm, IdcSC, CSC } = invoiceJSON;
   const xmlSigned = await signXML(xmlBuffer, dRucEm, cdc, IdcSC, CSC);
+  // clipboard.writeSync(xmlSigned);
   // save xmlSigned and CDC to database
-  try {
-    await invoice.update({
-      xml: xmlSigned,
-      CDC: cdc,
-    });
-    console.log("Firmado!");
-  } catch {
-    console.log("Error saving xmlSigned and CDC to database");
-  }
-  clipboard.writeSync(xmlSigned);
-  return;
+  const invoiceUpdatedFields = {
+    xml: xmlSigned,
+    CDC: cdc,
+  };
+  return await updateInvoice(invoiceUpdatedFields, invoice.id);
 }
 
 async function createInvoicesZip() {
   const invoice = await getFirstNoZippedInvoice();
-  if (!invoice) {
-    console.log("No pending zip invoices found");
-    return;
-  }
+  if (!invoice) return;
   console.log("First invoice customer", invoice.companyId);
+
+  const company = await getCompany(invoice.companyId);
+  if (!company) return console.error("Error getting company");
+
+  const emisorRuc = company.ruc.split("-")[0];
+  if (!emisorRuc) return console.error("Error getting emisorRuc");
+
   const invoices = await getAllNoZippedInvoicesByCompany(invoice.companyId);
-  if (!invoices.length) {
-    console.log("No pending zip invoices found");
-    return;
-  }
-  console.log("Invoices to zip", invoices.length);
+  if (!invoices.length) return console.log("No pending zip invoices found");
+
+  console.log(`${invoices.length} Invoices to zip`);
   // create zip record
-  // const zip = await Zip.create({
-  // fake create zip record
-  const zipId = 173707000;
-  // const zipId = Number(String(new Date().getTime()).slice(0, 9));
+  const zip = await createEmptyZip(emisorRuc);
+  if (!zip) return console.error("Error creating zip");
+
+  const zipId = zip.id;
   // update invoices with zipId with a transaction
   const t = await sequelize.transaction();
   try {
@@ -178,19 +179,13 @@ async function createInvoicesZip() {
 
 async function sendZipToSIFEN() {
   // get zip invoices
-  // const zip = await Zip.findOne({ where: { status: 'PENDIENTE' } });
-  // fake get zip
-  const zip = { id: 173707000, emisorRuc: "80018966" };
-  if (!zip) {
-    console.log("No pending zip found");
-    return;
-  }
-  const invoices = await Invoice.findAll({ attributes: ["id", "xml", "CDC"], where: { zipId: zip.id } });
+  const zip = await getFirstPendingZip();
+  if (!zip) return console.log("No pending zip found");
 
-  if (!invoices.length) {
-    console.log("No zip invoices found");
-    return;
-  }
+  const invoiceGetAllOptions = { attributes: ["id", "xml", "CDC"], where: { zipId: zip.id } };
+  const invoices = await getAllInvoices(invoiceGetAllOptions);
+  if (!invoices.length) return console.log("No zip invoices found");
+
   // extract the <rDE> from each invoice using parser
   const rDEs = invoices.map((inv) => {
     const rDE = inv.xml;
@@ -199,10 +194,8 @@ async function sendZipToSIFEN() {
 
   // create zip file with rDEs
   const rLoteDE = `<rLoteDE>${rDEs.join("")}</rLoteDE>`;
-  clipboard.writeSync(rLoteDE);
   console.log("rDEs joined!");
-  // create an xml file buffer with the rLoteDE content
-  // finally, create a zip file buffer and convert it to base64 string
+
   fs.writeFileSync(`${zip.id}.xml`, rLoteDE);
   // Create zip
   const output = fs.createWriteStream(`${zip.id}.zip`);
@@ -216,8 +209,22 @@ async function sendZipToSIFEN() {
     const zipData = fs.readFileSync(`${zip.id}.zip`);
     const base64Zip = zipData.toString("base64");
     console.log(base64Zip);
-    const result = await sentZipToSIFEN(zip.id, zip.emisorRuc, base64Zip);
-    console.log(result);
+    const response = await sendZip(zip.id, zip.emisorRuc, base64Zip);
+    if (response.success) {
+      const result = await parser.parseStringPromise(response.data);
+      // console.log(util.inspect(responseData, false, null))
+      const dCodRes = result["env:Envelope"]["env:Body"]["ns2:rResEnviLoteDe"]["ns2:dCodRes"];
+      const dProtConsLote = result["env:Envelope"]["env:Body"]["ns2:rResEnviLoteDe"]["ns2:dProtConsLote"];
+      if (dCodRes === "0300") {
+        console.log("Zip received by SIFEN!");
+        // update zip status to ENVIADO
+        await zip.update({ status: "ENVIADO", loteNro: dProtConsLote, consultaXML: response.data });
+      }
+      // update zip status to ENVIADO
+      await zip.update({ status: "ENVIADO" });
+    }
     // delete zip file and xml file
+    fs.unlinkSync(`${zip.id}.zip`);
+    fs.unlinkSync(`${zip.id}.xml`);
   });
 }

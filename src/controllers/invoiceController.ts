@@ -5,6 +5,16 @@ import { InvoiceItem } from "../models/invoiceItem";
 import moment from "moment";
 import { Op } from "sequelize";
 
+
+export  async function getAllInvoices(options: any) {
+  try {
+    const invoices = await Invoice.findAll(options);
+    return invoices;
+  } catch (error) {
+    console.log("Error getting all invoices", error);
+    return [];
+  }
+}
 export async function getFirstNoZippedInvoice() {
   try{
     const invoice = await Invoice.findOne({
@@ -18,6 +28,7 @@ export async function getFirstNoZippedInvoice() {
       logging: false,
     });
     if (!invoice) {
+      console.log("No pending zip invoices found")
       return null;
     }
     return invoice;
@@ -94,17 +105,19 @@ export async function getFirstPendingInvoiceData() {
 }
 
 export async function getAllPendingInvoicesByCustomer(customerDocId: string) {
-  const invoices = Invoice.findAll({
-    where: {
-      annulled: false,
-      customerDocId,
-      // sifen status is pending
-    },
-  });
-  if (!invoices) {
+  try{
+    const invoices = await Invoice.findAll({
+      where: {
+        annulled: false,
+        customerDocId,
+        sifenStatus: "PENDIENTE",
+      },
+    });
+    return invoices;
+  } catch (error) {
+    console.error("Error getting all pending invoices by customer", error);
     return [];
   }
-  return invoices;
 }
 
 export async function getInvoiceJSON(invoice: Invoice, company: Company, invoiceItems: InvoiceItem[]) {
@@ -231,3 +244,12 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
   return invoiceJSON;
 }
 
+export async function updateInvoice(updatedFields: any, invoiceId: string) {
+  try {
+    const updatedInvoice = await Invoice.update(updatedFields, { where: { id: invoiceId } });
+    return updatedInvoice;
+  } catch (error) {
+    console.log("Error updating invoice", error);
+    return null;
+  }
+}

@@ -1,11 +1,11 @@
-import axios from 'axios';
+import axios, { isAxiosError } from 'axios';
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
 import { NODE_ENV } from '../config';
 
 
-export async function sentZipToSIFEN(zipId: number, emisorRuc: string,base64zip: string) {
+export async function sendZip(zipId: number, emisorRuc: string,base64zip: string) {
   const url = NODE_ENV === "production" ? "https://sifen.set.gov.py/de/ws/async/recibe-lote.wsdl" : "https://sifen-test.set.gov.py/de/ws/async/recibe-lote.wsdl";
   const p12Path = path.resolve(__dirname, `../../certificates/${emisorRuc}.p12`);
   const p12Password = 'Fp3!yE4y';
@@ -34,11 +34,13 @@ export async function sentZipToSIFEN(zipId: number, emisorRuc: string,base64zip:
       },
       httpsAgent,
     });
-
-    console.log('Response:', response.data);
+    console.log("Zip sent to SIFEN!");
     return { success: true, data: response.data };
   } catch (error) {
-    console.error('Error sending request:', error);
+    if(isAxiosError(error)) {
+      console.error('Error sending zip to sifen:', error.response?.data);
+      return { success: false, error: error.response?.data };
+    }
     return { success: false, error };
   }
 };
