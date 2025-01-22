@@ -35,6 +35,8 @@ export class Invoice extends Model {
   declare CDC: string;
   declare zipId: number;
   declare sifenMensaje: string;
+  declare customerEmail: string;
+  declare emailStatus: string;
 }
 
 Invoice.init({
@@ -73,7 +75,9 @@ Invoice.init({
   xml: DataTypes.STRING,
   CDC: DataTypes.STRING,
   zipId: DataTypes.NUMBER,
-  sifenMensaje: DataTypes.STRING
+  sifenMensaje: DataTypes.STRING,
+  customerEmail: DataTypes.STRING,
+  emailStatus: DataTypes.STRING
 }, {
   sequelize,
   tableName: 'invoice',

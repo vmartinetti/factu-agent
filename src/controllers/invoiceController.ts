@@ -5,8 +5,7 @@ import { InvoiceItem } from "../models/invoiceItem";
 import moment from "moment";
 import { Op } from "sequelize";
 
-
-export  async function getAllInvoices(options: any) {
+export async function getAllInvoices(options: any) {
   try {
     const invoices = await Invoice.findAll(options);
     return invoices;
@@ -16,7 +15,7 @@ export  async function getAllInvoices(options: any) {
   }
 }
 export async function getFirstNoZippedInvoice() {
-  try{
+  try {
     const invoice = await Invoice.findOne({
       where: {
         annulled: false,
@@ -28,7 +27,7 @@ export async function getFirstNoZippedInvoice() {
       logging: false,
     });
     if (!invoice) {
-      console.log("No pending zip invoices found")
+      console.log("No pending zip invoices found");
       return null;
     }
     return invoice;
@@ -105,7 +104,7 @@ export async function getFirstPendingInvoiceData() {
 }
 
 export async function getAllPendingInvoicesByCustomer(customerDocId: string) {
-  try{
+  try {
     const invoices = await Invoice.findAll({
       where: {
         annulled: false,
@@ -250,6 +249,22 @@ export async function updateInvoice(updatedFields: any, invoiceId: string) {
     return updatedInvoice;
   } catch (error) {
     console.log("Error updating invoice", error);
+    return null;
+  }
+}
+
+export async function getFirstPendingEmailInvoice() {
+  try {
+    const invoice = await Invoice.findOne({
+      where: {
+        annulled: false,
+        emailStatus: "PENDIENTE",
+      },
+      logging: false,
+    });
+    return invoice;
+  } catch (error) {
+    console.log("Error getting first pending email invoice", error);
     return null;
   }
 }
