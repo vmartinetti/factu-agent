@@ -27,3 +27,17 @@ export async function getFirstPendingZip() {
     return null;
   }
 }
+
+export async function getFirstSentZip() {
+  try {
+    const zip = await Zip.findOne({
+      where: { status: "ENVIADO" },
+      order: [["createdAt", "ASC"]],
+      logging: false,
+    });
+    return zip;
+  } catch (error) {
+    console.error("Error getting first pending zip", error);
+    return null;
+  }
+}

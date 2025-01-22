@@ -7,10 +7,13 @@ import { getCDCSinDv, validateJSON, eliminarValoresNulos, calcularDV, getXMLFrom
 // import clipboard from "clipboardy";
 import fs from "fs";
 import archiver from "archiver";
-import { sendZip } from "./controllers/sifenController";
-import { createEmptyZip, getFirstPendingZip } from "./controllers/zipController";
+import { getLoteStatus, sendZip } from "./controllers/sifenController";
+import { createEmptyZip, getFirstPendingZip, getFirstSentZip } from "./controllers/zipController";
 import { getCompany } from "./controllers/company";
 import xml2js from "xml2js";
+import util from "util";
+import { Invoice } from "./models/invoice";
+import { where } from "sequelize";
 
 const parser = new xml2js.Parser({ explicitArray: false });
 
@@ -19,9 +22,10 @@ sequelize
   .authenticate()
   .then(() => {
     console.log("Connection has been established successfully.");
-    processInvoice();
-    createInvoicesZip();
-    sendZipToSIFEN();
+    // processInvoice();
+    // createInvoicesZip();
+    // sendZipToSIFEN();
+    checkZipStatus();
   })
   .catch((error) => {
     console.error("Unable to connect to the database:", error);
@@ -43,7 +47,7 @@ async function processInvoice() {
   // test with zod
   const isValid = await validateJSON(invoiceJSON);
   if (!isValid.success) {
-    console.log("Error validating JSON", isValid.errors);
+    console.log("Error validating JSON on invoiceId:", invoice.id, isValid.errors);
     return;
   }
 
@@ -184,8 +188,14 @@ async function sendZipToSIFEN() {
 
   const invoiceGetAllOptions = { attributes: ["id", "xml", "CDC"], where: { zipId: zip.id } };
   const invoices = await getAllInvoices(invoiceGetAllOptions);
-  if (!invoices.length) return console.log("No zip invoices found");
-
+  if (!invoices.length) {
+    try {
+      await zip.update({ status: "ZERO_INVOICES" });
+    } catch (error) {
+      console.log("Error updating zip status", error);
+    }
+    return console.log("No zip invoices found");
+  }
   // extract the <rDE> from each invoice using parser
   const rDEs = invoices.map((inv) => {
     const rDE = inv.xml;
@@ -195,6 +205,12 @@ async function sendZipToSIFEN() {
   // create zip file with rDEs
   const rLoteDE = `<rLoteDE>${rDEs.join("")}</rLoteDE>`;
   console.log("rDEs joined!");
+  try {
+    fs.unlinkSync(`${zip.id}.zip`);
+    fs.unlinkSync(`${zip.id}.xml`);
+  } catch (error) {
+    console.log("Seems like the files don't exist yet or anymore");
+  }
 
   fs.writeFileSync(`${zip.id}.xml`, rLoteDE);
   // Create zip
@@ -208,23 +224,55 @@ async function sendZipToSIFEN() {
   output.on("close", async () => {
     const zipData = fs.readFileSync(`${zip.id}.zip`);
     const base64Zip = zipData.toString("base64");
-    console.log(base64Zip);
+    // console.log(base64Zip);
     const response = await sendZip(zip.id, zip.emisorRuc, base64Zip);
     if (response.success) {
-      const result = await parser.parseStringPromise(response.data);
-      // console.log(util.inspect(responseData, false, null))
-      const dCodRes = result["env:Envelope"]["env:Body"]["ns2:rResEnviLoteDe"]["ns2:dCodRes"];
-      const dProtConsLote = result["env:Envelope"]["env:Body"]["ns2:rResEnviLoteDe"]["ns2:dProtConsLote"];
-      if (dCodRes === "0300") {
-        console.log("Zip received by SIFEN!");
-        // update zip status to ENVIADO
-        await zip.update({ status: "ENVIADO", loteNro: dProtConsLote, consultaXML: response.data });
+      console.log(util.inspect(response.data, false, null));
+      try {
+        const result = await parser.parseStringPromise(response.data);
+        const dCodRes = result["env:Envelope"]["env:Body"]["ns2:rResEnviLoteDe"]["ns2:dCodRes"];
+        const dProtConsLote = result["env:Envelope"]["env:Body"]["ns2:rResEnviLoteDe"]["ns2:dProtConsLote"];
+        if (dCodRes === "0300") {
+          console.log("Zip received by SIFEN!");
+          // update zip status to ENVIADO
+          await zip.update({ status: "ENVIADO", loteNro: dProtConsLote, envioXML: response.data });
+          await Invoice.update({ sifenStatus: "ENVIADO" }, { where: { zipId: zip.id } });
+        }
+      } catch (error) {
+        console.log("Error parsing response XML", error);
       }
-      // update zip status to ENVIADO
-      await zip.update({ status: "ENVIADO" });
     }
-    // delete zip file and xml file
     fs.unlinkSync(`${zip.id}.zip`);
     fs.unlinkSync(`${zip.id}.xml`);
+    // delete zip file and xml file
   });
+}
+
+async function checkZipStatus() {
+  const zip = await getFirstSentZip();
+  if (!zip) return console.log("No zip with status ENVIADO found");
+  const { id: zipId, loteNro, emisorRuc } = zip;
+  // get lote status
+  const resultLoteStatus = await getLoteStatus(loteNro, zipId, emisorRuc);
+  if (!resultLoteStatus.success) {
+    return console.log(resultLoteStatus.error);
+  }
+  const status = resultLoteStatus.status;
+  if (status === "PROCESADO"){
+    const resultados = resultLoteStatus.data;
+    // update every invoice with the status PROCESADO
+    const t = await sequelize.transaction();
+    try{
+      for (const result of resultados) {
+        const { id, dEstRes: res, gResProc: error } = result;
+        const resultado = res.toUpperCase();
+        await Invoice.update({ sifenStatus: resultado, sifenMensaje: `${error?.dCodRes} - ${error?.dMsgRes}` }, { where: { CDC: id }, transaction: t });
+      }
+      await zip.update({ status: "PROCESADO" }, { transaction: t });
+      await t.commit();
+    }catch (error) {
+      await t.rollback();
+      console.log("Error updating invoices with sifen status", error);
+    }
+  }
 }

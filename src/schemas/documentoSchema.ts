@@ -3734,10 +3734,10 @@ export const documentoSchema = z
             (dAntGloPreUniIt || 0)) *
           dCantProSer;
 
-        if (dTotOpeItem !== calculatedTotOpeItem) {
+        if (dTotOpeItem !== Math.round(calculatedTotOpeItem *100)/100) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: `El valor de dTotOpeItem no es correcto. Debe ser el resultado de (dPUniProSer - dDescItem - dDescGloItem - dAntPreUniIt - dAntGloPreUniIt) * dCantProSer. Valor esperado: ${calculatedTotOpeItem}`,
+            message: `El valor de dTotOpeItem no es correcto. Debe ser el resultado de (dPUniProSer - dDescItem - dDescGloItem - dAntPreUniIt - dAntGloPreUniIt) * dCantProSer. Valor esperado: ${calculatedTotOpeItem}. Valor obtenido: ${dTotOpeItem}`,
             path: ["itemsDet", index, "dTotOpeItem"],
           });
         }

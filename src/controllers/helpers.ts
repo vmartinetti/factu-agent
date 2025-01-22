@@ -1,6 +1,9 @@
 import xml2js from "xml2js";
 import { dDCondCredList, dDCondOpeList, dDesAfecIVAList, dDesDenTarjList, dDesIndPresList, dDesMoneOpeList, dDesMotEmiList, dDesTImpList, dDesTiPagList, dDesTipDocAsoList, dDesTipTraList, dDesUniMedList, dDTipIDRespDEList } from "../constants";
 import { paisesList } from "../geographic";
+import https from "https";
+import fs from "fs";
+import path from "path";
 
 const parser = new xml2js.Parser();
 const builder = new xml2js.Builder();
@@ -256,3 +259,13 @@ export const obtenerDigestValue = async (xml: string): Promise<string> => {
   const result = await parser.parseStringPromise(xml);
   return result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0]["Signature"][0]["SignedInfo"][0]["Reference"][0]["DigestValue"][0];
 };
+
+export function getHttpAgent(emisorRuc: string) {
+  const p12Path = path.resolve(__dirname, `../../certificates/${emisorRuc}.p12`);
+  const p12Password = "Fp3!yE4y";
+  const httpsAgent = new https.Agent({
+    pfx: fs.readFileSync(p12Path),
+    passphrase: p12Password,
+  });
+  return httpsAgent;
+}
