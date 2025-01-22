@@ -62,11 +62,25 @@ async function sendInvoicesByEmail() {
   if (!company) return console.error("Error getting company");
   // send email with resend
   // update invoice with emailStatus
-  const { data, error } = await resend.emails.send({
-    from: "Factu <factura.electronica@factu.com.py>",
+  const xmlString = `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Header/><soap:Body><rEnviDe xmlns="http://ekuatia.set.gov.py/sifen/xsd"><dId>120697</dId><xDE>
+  ${invoice.xml}
+  </xDE></rEnviDe></soap:Body></soap:Envelope>`;
+
+  const xmlFileName = `factura_${invoice.salespointSucursal.toString().padStart(3, "0")}-${invoice.salespointPunto.toString().padStart(3, "0")}-${invoice.number.toString().padStart(7, "0")}.xml`;
+  fs.writeFileSync(xmlFileName, xmlString);
+
+  const { error } = await resend.emails.send({
+    from: "Factu <factura.electronica@registro.factu.com.py>",
     to: invoice.customerEmail,
     subject: `Tu factura electrónica de ${company.nombreFantasia || company.razonSocial}`,
-    text: ``,
+    text: `Hola ${invoice.customerName},
+
+Te enviamos tu factura electrónica ${invoice.salespointSucursal.toString().padStart(3, "0")}-${invoice.salespointPunto.toString().padStart(3, "0")}-${invoice.number.toString().padStart(7, "0")}, emitida el ${moment(invoice.dateIssued).format("DD/MM/yyyy")}. La encontrarás adjunta en este correo.
+
+¡Gracias por tu preferencia!
+
+Saludos,
+${company.nombreFantasia || company.razonSocial}`,
     html: `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -84,14 +98,14 @@ async function sendInvoicesByEmail() {
     <tr>
       <td>
         <p>Hola <strong>${invoice.customerName}</strong>,</p>
-        <p>Adjunto encontrarás la factura electrónica correspondiente a tu compra realizada el <strong>${moment(invoice.dateIssued).format("dd/mm/yyyy")}</strong>. Agradecemos tu confianza en <strong>${
+        <p>Adjunto encontrarás la factura electrónica correspondiente a tu compra realizada el <strong>${moment(invoice.dateIssued).format("DD/MM/yyyy")}</strong>. Agradecemos tu confianza en <strong>${
       company.nombreFantasia || company.razonSocial
     }</strong> y estamos aquí para cualquier consulta que tengas.</p>
 
         <h3 style="color: #007bff;">Detalles de la factura:</h3>
         <ul>
           <li><strong>Número de factura:</strong> ${invoice.salespointSucursal.toString().padStart(3, "0")}-${invoice.salespointPunto.toString().padStart(3, "0")}-${invoice.number.toString().padStart(7, "0")}</li>
-          <li><strong>Fecha de emisión:</strong> ${moment(invoice.dateIssued).format("dd/mm/yyyy")}</li>
+          <li><strong>Fecha de emisión:</strong> ${moment(invoice.dateIssued).format("DD/MM/yyyy")}</li>
           <li><strong>Monto total:</strong> ${invoice.currencyCode} ${invoice.total}</li>
         </ul>
 
@@ -105,14 +119,24 @@ async function sendInvoicesByEmail() {
 </body>
 </html>
 `,
+    attachments: [
+      {
+        filename: xmlFileName,
+        content: fs.readFileSync(xmlFileName),
+      },
+    ],
   });
+  fs.unlinkSync(xmlFileName);
   if (error) {
     console.log("Error sending email", error);
     invoice.update({ emailStatus: "ERROR" });
+  } else {
+    invoice.update({ emailStatus: "ENVIADO" });
   }
-  console.log('data', data)
-  invoice.update({ emailStatus: "ENVIADO" });
-  return sendInvoicesByEmail()
+  // wait 3 seconds before sending another email
+  setTimeout(() => {
+    return sendInvoicesByEmail();
+  }, 3000);
 }
 
 async function processInvoice() {
