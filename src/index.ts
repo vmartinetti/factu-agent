@@ -11,9 +11,8 @@ import { getLoteStatus, sendZip } from "./controllers/sifenController";
 import { createEmptyZip, getFirstPendingZip, getFirstSentZip } from "./controllers/zipController";
 import { getCompany } from "./controllers/company";
 import xml2js from "xml2js";
-import util from "util";
 import { Invoice } from "./models/invoice";
-import { where } from "sequelize";
+import { schedule } from "node-cron";
 
 const parser = new xml2js.Parser({ explicitArray: false });
 
@@ -22,14 +21,31 @@ sequelize
   .authenticate()
   .then(() => {
     console.log("Connection has been established successfully.");
-    // processInvoice();
+    processInvoice();
+    scheduleJobs();
     // createInvoicesZip();
     // sendZipToSIFEN();
-    checkZipStatus();
+    // checkZipStatus();
   })
   .catch((error) => {
     console.error("Unable to connect to the database:", error);
   });
+
+  // function that creates CRON jobs
+function scheduleJobs() {
+  schedule('*/60 * * * * *', () => {
+    processInvoice();
+  });
+  schedule('*/60 * * * * *', () => {
+    createInvoicesZip();
+  });
+  schedule('*/60 * * * * *', () => {
+    sendZipToSIFEN();
+  });
+  schedule('*/60 * * * * *', () => {
+    checkZipStatus();
+  });
+}
 
 async function processInvoice() {
   const { invoice, company, invoiceItems } = await getFirstPendingInvoiceData();
@@ -144,7 +160,8 @@ async function processInvoice() {
     xml: xmlSigned,
     CDC: cdc,
   };
-  return await updateInvoice(invoiceUpdatedFields, invoice.id);
+  await updateInvoice(invoiceUpdatedFields, invoice.id);
+  return processInvoice();
 }
 
 async function createInvoicesZip() {
@@ -175,6 +192,7 @@ async function createInvoicesZip() {
     }
     await t.commit();
     console.log("Invoices zipped! id:", zipId);
+    sendZipToSIFEN();
   } catch (error) {
     await t.rollback();
     console.log("Error zipping invoices", error);
@@ -227,7 +245,6 @@ async function sendZipToSIFEN() {
     // console.log(base64Zip);
     const response = await sendZip(zip.id, zip.emisorRuc, base64Zip);
     if (response.success) {
-      console.log(util.inspect(response.data, false, null));
       try {
         const result = await parser.parseStringPromise(response.data);
         const dCodRes = result["env:Envelope"]["env:Body"]["ns2:rResEnviLoteDe"]["ns2:dCodRes"];
@@ -264,7 +281,8 @@ async function checkZipStatus() {
     const t = await sequelize.transaction();
     try{
       for (const result of resultados) {
-        const { id, dEstRes: res, gResProc: error } = result;
+        let { id, dEstRes: res, gResProc: error } = result;
+        if(res === "Aprobado con observación") res = "APROBADO"
         const resultado = res.toUpperCase();
         await Invoice.update({ sifenStatus: resultado, sifenMensaje: `${error?.dCodRes} - ${error?.dMsgRes}` }, { where: { CDC: id }, transaction: t });
       }

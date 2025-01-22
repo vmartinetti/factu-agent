@@ -2,7 +2,7 @@ import axios, { isAxiosError } from "axios";
 import xml2js from "xml2js";
 import { NODE_ENV } from "../config";
 import { getHttpAgent } from "./helpers";
-import util from "util";
+// import util from "util";
 
 const parser = new xml2js.Parser(
   {explicitArray: false,  // Prevent wrapping values in arrays
@@ -33,7 +33,6 @@ export async function sendZip(zipId: number, emisorRuc: string, base64zip: strin
       },
       httpsAgent: getHttpAgent(emisorRuc),
     });
-    console.log("Zip sent to SIFEN!");
     return { success: true, data: response.data };
   } catch (error) {
     if (isAxiosError(error)) {
@@ -72,7 +71,6 @@ export async function getLoteStatus(loteNro: number, zipId: number, emisorRuc: s
     });
     try {
       const result = await parser.parseStringPromise(response.data);
-      console.log(util.inspect(result, false, null));
       const loteResult = result.Envelope?.Body?.rResEnviConsLoteDe?.dCodResLot;
       switch (loteResult) {
         case "0360":
