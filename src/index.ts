@@ -62,9 +62,7 @@ async function sendInvoicesByEmail() {
   if (!company) return console.error("Error getting company");
   // send email with resend
   // update invoice with emailStatus
-  const xmlString = `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Header/><soap:Body><rEnviDe xmlns="http://ekuatia.set.gov.py/sifen/xsd"><dId>120697</dId><xDE>
-  ${invoice.xml}
-  </xDE></rEnviDe></soap:Body></soap:Envelope>`;
+  const xmlString = `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Header/><soap:Body><rEnviDe xmlns="http://ekuatia.set.gov.py/sifen/xsd"><dId>120697</dId><xDE>${invoice.xml}</xDE></rEnviDe></soap:Body></soap:Envelope>`;
 
   const xmlFileName = `factura_${invoice.salespointSucursal.toString().padStart(3, "0")}-${invoice.salespointPunto.toString().padStart(3, "0")}-${invoice.number.toString().padStart(7, "0")}.xml`;
   fs.writeFileSync(xmlFileName, xmlString);
