@@ -3,7 +3,7 @@ import { sequelize } from "./database";
 import { buildItemsDet, getdDenSuc, getDescription, getgCamCond, getgCamDEAsoc, getgCamFE, getgCamNCDE, getgDatRec, getgOpeCom, getgTotSub } from "./controllers/helpers";
 import { dDesTiDEList, dDesTipEmiList } from "./constants";
 import { ciudadesList, departamentosList, distritosList } from "./geographic";
-import { getCDCSinDv, validateJSON, eliminarValoresNulos, calcularDV, getXMLFromDocumento, getFullXML, signXML } from "./controllers/documentController";
+import { validateJSON, eliminarValoresNulos, getXMLFromDocumento, getFullXML, signXML } from "./controllers/documentController";
 // import clipboard from "clipboardy";
 import fs from "fs";
 import archiver from "archiver";
@@ -28,9 +28,6 @@ sequelize
     console.log("Connection has been established successfully.");
     processInvoice();
     scheduleJobs();
-    // createInvoicesZip();
-    // sendZipToSIFEN();
-    // checkZipStatus();
   })
   .catch((error) => {
     console.error("Unable to connect to the database:", error);
@@ -50,7 +47,7 @@ function scheduleJobs() {
   schedule("*/60 * * * * *", () => {
     checkZipStatus();
   });
-  schedule("*/60 * * * * *", () => {
+  schedule("*/33 * * * * *", () => {
     sendInvoicesByEmail();
   });
 }
@@ -63,7 +60,6 @@ async function sendInvoicesByEmail() {
   // send email with resend
   // update invoice with emailStatus
   const xmlString = `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Header/><soap:Body><rEnviDe xmlns="http://ekuatia.set.gov.py/sifen/xsd"><dId>120697</dId><xDE>${invoice.xml}</xDE></rEnviDe></soap:Body></soap:Envelope>`;
-
   const xmlFileName = `factura_${invoice.salespointSucursal.toString().padStart(3, "0")}-${invoice.salespointPunto.toString().padStart(3, "0")}-${invoice.number.toString().padStart(7, "0")}.xml`;
   fs.writeFileSync(xmlFileName, xmlString);
 
@@ -159,14 +155,19 @@ async function processInvoice() {
 
   console.log("JSON isValid!");
 
-  const cdcSinDv: string | null = getCDCSinDv(invoiceJSON);
+  // TODO: check if we definitely need to get CDC from the invoice
+  // const cdcSinDv: string | null = getCDCSinDv(invoiceJSON);
+  // get 43 of the 44 characters of the CDC
+  const cdcSinDv = invoice.CDC.slice(0, -1);
+
 
   if (!cdcSinDv) {
     // TODO: Marcar en base de datos como error ( y en todos los lugares donde se maneje el error)
     return console.log("Fallo en la formación del CDC sin DV");
   }
-
-  const dv = calcularDV(cdcSinDv);
+  // TODO: check if we need to calculate the DV from the CDC
+  // const dv = calcularDV(cdcSinDv);
+  const dv = Number(invoice.CDC.slice(-1));
   let cdc = `${cdcSinDv}${dv}`;
 
   const documentoConNulos = {
