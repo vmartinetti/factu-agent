@@ -1,7 +1,7 @@
 import { getAllInvoices, getAllNoZippedInvoicesByCompany, getFirstNoZippedInvoice, getFirstPendingEmailInvoice, getFirstPendingInvoiceData, getInvoiceJSON, updateInvoice } from "./controllers/invoiceController";
 import { sequelize } from "./database";
 import { buildItemsDet, getdDenSuc, getDescription, getgCamCond, getgCamDEAsoc, getgCamFE, getgCamNCDE, getgDatRec, getgOpeCom, getgTotSub } from "./controllers/helpers";
-import { dDesTiDEList, dDesTipEmiList } from "./constants";
+import { dDesTiDEList, dDesTipEmiList, getDefaultHTML, getDefaultText } from "./constants";
 import { ciudadesList, departamentosList, distritosList } from "./geographic";
 import { validateJSON, eliminarValoresNulos, getXMLFromDocumento, getFullXML, signXML } from "./controllers/documentController";
 // import clipboard from "clipboardy";
@@ -14,8 +14,8 @@ import xml2js from "xml2js";
 import { Invoice } from "./models/invoice";
 import { schedule } from "node-cron";
 import { Resend } from "resend";
-import moment from "moment";
 import { RESEND_API_KEY } from "./config";
+import { Kude } from "./models/kude";
 
 const parser = new xml2js.Parser({ explicitArray: false });
 
@@ -57,70 +57,41 @@ async function sendInvoicesByEmail() {
   if (!invoice) return console.log("No pending email invoices found");
   const company = await getCompany(invoice.companyId);
   if (!company) return console.error("Error getting company");
+  const kude = await Kude.findByPk(invoice.CDC);
+  if(!kude) return console.error("Error getting kude");
   // send email with resend
   // update invoice with emailStatus
+  const rootFileName = `factura_${invoice.salespointSucursal.toString().padStart(3, "0")}-${invoice.salespointPunto.toString().padStart(3, "0")}-${invoice.number.toString().padStart(7, "0")}`;
   const xmlString = `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Header/><soap:Body><rEnviDe xmlns="http://ekuatia.set.gov.py/sifen/xsd"><dId>120697</dId><xDE>${invoice.xml}</xDE></rEnviDe></soap:Body></soap:Envelope>`;
-  const xmlFileName = `factura_${invoice.salespointSucursal.toString().padStart(3, "0")}-${invoice.salespointPunto.toString().padStart(3, "0")}-${invoice.number.toString().padStart(7, "0")}.xml`;
+  const xmlFileName = `${rootFileName}.xml`;
   fs.writeFileSync(xmlFileName, xmlString);
+  const pdfBuffer = Buffer.from(kude.base64 , "base64");
+  const pdfFileName = `${rootFileName}.pdf`;
+  fs.writeFileSync(pdfFileName, pdfBuffer);
+  if (!invoice.customerEmail) {
+    console.log("Error sending email");
+    invoice.update({ emailStatus: "ERROR_NO_EMAIL" });
+  }
 
   const { error } = await resend.emails.send({
     from: "Factu <factura.electronica@registro.factu.com.py>",
     to: invoice.customerEmail,
     subject: `Tu factura electrónica de ${company.nombreFantasia || company.razonSocial}`,
-    text: `Hola ${invoice.customerName},
-
-Te enviamos tu factura electrónica ${invoice.salespointSucursal.toString().padStart(3, "0")}-${invoice.salespointPunto.toString().padStart(3, "0")}-${invoice.number.toString().padStart(7, "0")}, emitida el ${moment(invoice.dateIssued).format("DD/MM/yyyy")}. La encontrarás adjunta en este correo.
-
-¡Gracias por tu preferencia!
-
-Saludos,
-${company.nombreFantasia || company.razonSocial}`,
-    html: `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Factura Electrónica</title>
-</head>
-<body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-  <table style="max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 5px;">
-    <tr>
-      <td align="center">
-        <h2 style="color: #007bff;">Factura Electrónica de ${company.nombreFantasia || company.razonSocial}</h2>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <p>Hola <strong>${invoice.customerName}</strong>,</p>
-        <p>Adjunto encontrarás la factura electrónica correspondiente a tu compra realizada el <strong>${moment(invoice.dateIssued).format("DD/MM/yyyy")}</strong>. Agradecemos tu confianza en <strong>${
-      company.nombreFantasia || company.razonSocial
-    }</strong> y estamos aquí para cualquier consulta que tengas.</p>
-
-        <h3 style="color: #007bff;">Detalles de la factura:</h3>
-        <ul>
-          <li><strong>Número de factura:</strong> ${invoice.salespointSucursal.toString().padStart(3, "0")}-${invoice.salespointPunto.toString().padStart(3, "0")}-${invoice.number.toString().padStart(7, "0")}</li>
-          <li><strong>Fecha de emisión:</strong> ${moment(invoice.dateIssued).format("DD/MM/yyyy")}</li>
-          <li><strong>Monto total:</strong> ${invoice.currencyCode} ${invoice.total}</li>
-        </ul>
-
-        <p>¡Gracias por tu preferencia!</p>
-
-        <p style="margin-top: 30px;">Saludos cordiales,<br>
-        <strong>${company.nombreFantasia || company.razonSocial}</strong>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-`,
+    text: getDefaultText(invoice, company),
+    html: getDefaultHTML(invoice, company),
     attachments: [
       {
         filename: xmlFileName,
         content: fs.readFileSync(xmlFileName),
       },
+      {
+        filename: pdfFileName,
+        content: fs.readFileSync(pdfFileName),
+      }
     ],
   });
   fs.unlinkSync(xmlFileName);
+  fs.unlinkSync(pdfFileName);
   if (error) {
     console.log("Error sending email", error);
     invoice.update({ emailStatus: "ERROR" });
@@ -159,7 +130,6 @@ async function processInvoice() {
   // const cdcSinDv: string | null = getCDCSinDv(invoiceJSON);
   // get 43 of the 44 characters of the CDC
   const cdcSinDv = invoice.CDC.slice(0, -1);
-
 
   if (!cdcSinDv) {
     // TODO: Marcar en base de datos como error ( y en todos los lugares donde se maneje el error)
@@ -367,7 +337,9 @@ async function checkZipStatus() {
   }
   const status = resultLoteStatus.status;
   if (status === "PROCESADO") {
+    const xml = resultLoteStatus.xml;
     const resultados = resultLoteStatus.data;
+    console.log("resultados form zip status", resultados);
     // update every invoice with the status PROCESADO
     const t = await sequelize.transaction();
     try {
@@ -377,7 +349,7 @@ async function checkZipStatus() {
         const resultado = res.toUpperCase();
         await Invoice.update({ sifenStatus: resultado, sifenMensaje: `${error?.dCodRes} - ${error?.dMsgRes}` }, { where: { CDC: id }, transaction: t });
       }
-      await zip.update({ status: "PROCESADO" }, { transaction: t });
+      await zip.update({ status: "PROCESADO", consultaXML: xml }, { transaction: t });
       await t.commit();
     } catch (error) {
       await t.rollback();

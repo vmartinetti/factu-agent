@@ -1,3 +1,59 @@
+import moment from "moment";
+import { Invoice } from "./models/invoice";
+import { Company } from "./models/company";
+
+export function getDefaultHTML(invoice: Invoice, company: Company) {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Factura Electrónica</title>
+</head>
+<body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+  <table style="max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 5px;">
+    <tr>
+      <td align="center">
+        <h2 style="color: #007bff;">Factura Electrónica de ${company.nombreFantasia || company.razonSocial}</h2>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <p>Hola <strong>${invoice.customerName}</strong>,</p>
+        <p>Adjunto encontrarás la factura electrónica correspondiente a tu compra realizada el <strong>${moment(invoice.dateIssued).format("DD/MM/yyyy")}</strong>. Agradecemos tu confianza en <strong>${
+    company.nombreFantasia || company.razonSocial
+  }</strong> y estamos aquí para cualquier consulta que tengas.</p>
+
+        <h3 style="color: #007bff;">Detalles de la factura:</h3>
+        <ul>
+          <li><strong>Número de factura:</strong> ${invoice.salespointSucursal.toString().padStart(3, "0")}-${invoice.salespointPunto.toString().padStart(3, "0")}-${invoice.number.toString().padStart(7, "0")}</li>
+          <li><strong>Fecha de emisión:</strong> ${moment(invoice.dateIssued).format("DD/MM/yyyy")}</li>
+          <li><strong>Monto total:</strong> ${invoice.currencyCode} ${invoice.total}</li>
+        </ul>
+
+        <p>¡Gracias por tu preferencia!</p>
+
+        <p style="margin-top: 30px;">Saludos cordiales,<br>
+        <strong>${company.nombreFantasia || company.razonSocial}</strong>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+}
+
+export function getDefaultText(invoice: Invoice, company: Company) {
+  return `Hola ${invoice.customerName},
+  
+  Te enviamos tu factura electrónica ${invoice.salespointSucursal.toString().padStart(3, "0")}-${invoice.salespointPunto.toString().padStart(3, "0")}-${invoice.number.toString().padStart(7, "0")}, emitida el ${moment(invoice.dateIssued).format("DD/MM/yyyy")}. La encontrarás adjunta en este correo.
+  
+  ¡Gracias por tu preferencia!
+  
+  Saludos,
+  ${company.nombreFantasia || company.razonSocial}`;
+}
+
 export const dDesTipEmiList = [
   { id: 1, descripcion: "Normal" },
   { id: 2, descripcion: "Contingencia" },

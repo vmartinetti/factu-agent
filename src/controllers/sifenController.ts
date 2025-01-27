@@ -75,21 +75,22 @@ export async function getLoteStatus(loteNro: number, zipId: number, emisorRuc: s
       switch (loteResult) {
         case "0360":
           console.log("Zip status INEXISTENTE");
-          return { success: true, data: [], status: "INEXISTENTE" };
+          return { success: true, data: [], status: "INEXISTENTE", xml: response.data };
         case "0361":
           console.log("Zip is still in process");
           return { success: false, error: "Zip is still pending" };
         case "0362":
           console.log("Zip process finished!");
           const invoices = result.Envelope?.Body?.rResEnviConsLoteDe?.gResProcLote
-          return { success: true, data: invoices, status: "PROCESADO" };
+          const invoicesArray = Array.isArray(invoices) ? invoices : invoices ? [invoices] : [];
+          return { success: true, data: invoicesArray, status: "PROCESADO", xml: response.data };
           
         case "0364":
           console.log("Zip was rejected by SIFEN");
-          return { success: true, data: [], status: "EXTEMPORANEO" };
+          return { success: true, data: [], status: "EXTEMPORANEO", xml: response.data };
         default:
           console.log("Unknown status");
-          return { success: false, error: "Unknown status" };
+          return { success: false, error: "ERROR_UNKNOWN", xml: response.data };
       }
     } catch (error) {
       console.log('error', error)

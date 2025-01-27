@@ -21,6 +21,7 @@ export async function getFirstNoZippedInvoice() {
         annulled: false,
         sifenStatus: "PENDIENTE",
         CDC: { [Op.ne]: null },
+        xml: { [Op.ne]: null },
         zipId: null,
       },
       order: [["createdAt", "ASC"]],
@@ -64,7 +65,8 @@ export async function getFirstPendingInvoiceData() {
       where: {
         annulled: false,
         sifenStatus: "PENDIENTE",
-        CDC: null,
+        CDC: {[Op.ne]: null},
+        xml: null
       },
       logging: false,
     });
