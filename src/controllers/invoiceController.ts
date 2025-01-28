@@ -132,6 +132,7 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
   const invoiceJSONWithNull = {
     IdcSC: NODE_ENV === "development" ? "0001" : String(company.idCSC).padStart(4, "0"),
     CSC: NODE_ENV === "development" ? "ABCD0000000000000000000000000000" : company.CSC,
+    dFecFirma: moment(invoice.dateTimeIssued).format("YYYY-MM-DDTHH:mm:ss"),
     iTipEmi: 1,
     dCodSeg: invoice.securityCode,
     iTiDE: 1, //Factura
@@ -229,10 +230,11 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
       // dTotOpeGs: TODO: implement this when USD is used
       iAfecIVA: item.iva > 0 ? 1 : 3,
       dDesAfecIVA: item.iva > 0 ? "Gravado IVA" : "Exento",
-      dPropIVA: 100,
+      // TODO: check this for the percentage of IVA
+      dPropIVA: item.iva > 0 ? 100 : 0,
       dTasaIVA: item.iva,
-      dBasGravIVA: Number(item.subTotal) - Number(item.iva5SubTotal) - Number(item.iva10SubTotal),
-      dLiqIVAItem: Number(item.iva5SubTotal) + Number(item.iva10SubTotal),
+      dBasGravIVA: item.iva > 0 ? Number(item.subTotal) - Number(item.iva5SubTotal) - Number(item.iva10SubTotal) : 0,
+      dLiqIVAItem: item.iva > 0 ? Number(item.iva5SubTotal) + Number(item.iva10SubTotal) : 0,
     })),
   };
   // remove all null values
@@ -247,7 +249,15 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
 
 export async function updateInvoice(updatedFields: any, invoiceId: string) {
   try {
-    const updatedInvoice = await Invoice.update(updatedFields, { where: { id: invoiceId } });
+    const updatedInvoice = await Invoice.update(
+      {
+        ...updatedFields,
+        updatedAt: new Date(),
+      },
+      {
+        where: { id: invoiceId },
+      }
+    );
     return updatedInvoice;
   } catch (error) {
     console.log("Error updating invoice", error);
@@ -267,6 +277,27 @@ export async function getFirstPendingEmailInvoice() {
     return invoice;
   } catch (error) {
     console.log("Error getting first pending email invoice", error);
+    return null;
+  }
+}
+
+export async function getFirstRepairedInvoice() {
+  try {
+    const invoice = await Invoice.findOne({
+      where: {
+        annulled: false,
+        sifenStatus: "REPARADO"
+      },
+      order: [["createdAt", "ASC"]],
+      logging: false,
+    });
+    if (!invoice) {
+      console.log("No pending zip invoices found");
+      return null;
+    }
+    return invoice;
+  } catch (error) {
+    console.log("Error getting first no zipped invoice", error);
     return null;
   }
 }

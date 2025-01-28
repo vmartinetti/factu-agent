@@ -1,9 +1,9 @@
-import { getAllInvoices, getAllNoZippedInvoicesByCompany, getFirstNoZippedInvoice, getFirstPendingEmailInvoice, getFirstPendingInvoiceData, getInvoiceJSON, updateInvoice } from "./controllers/invoiceController";
+import { getAllInvoices, getAllNoZippedInvoicesByCompany, getFirstNoZippedInvoice, getFirstPendingEmailInvoice, getFirstPendingInvoiceData, getFirstRepairedInvoice, getInvoiceJSON, updateInvoice } from "./controllers/invoiceController";
 import { sequelize } from "./database";
 import { buildItemsDet, getdDenSuc, getDescription, getgCamCond, getgCamDEAsoc, getgCamFE, getgCamNCDE, getgDatRec, getgOpeCom, getgTotSub } from "./controllers/helpers";
 import { dDesTiDEList, dDesTipEmiList, getDefaultHTML, getDefaultText } from "./constants";
 import { ciudadesList, departamentosList, distritosList } from "./geographic";
-import { validateJSON, eliminarValoresNulos, getXMLFromDocumento, getFullXML, signXML } from "./controllers/documentController";
+import { validateJSON, eliminarValoresNulos, getXMLFromDocumento, getFullXML, signXML, getNewCDC } from "./controllers/documentController";
 // import clipboard from "clipboardy";
 import fs from "fs";
 import archiver from "archiver";
@@ -26,6 +26,7 @@ sequelize
   .authenticate()
   .then(() => {
     console.log("Connection has been established successfully.");
+    processRepairedInvoice();
     processInvoice();
     scheduleJobs();
   })
@@ -50,6 +51,9 @@ function scheduleJobs() {
   schedule("*/33 * * * * *", () => {
     sendInvoicesByEmail();
   });
+  schedule("*/43 * * * * *", () => {
+    processRepairedInvoice();
+  });
 }
 
 async function sendInvoicesByEmail() {
@@ -58,14 +62,17 @@ async function sendInvoicesByEmail() {
   const company = await getCompany(invoice.companyId);
   if (!company) return console.error("Error getting company");
   const kude = await Kude.findByPk(invoice.CDC);
-  if(!kude) return console.error("Error getting kude");
+  if (!kude) {
+    console.error("No Kude found for invoice");
+    return await invoice.update({ emailStatus: "ERROR_NO_KUDE" });
+  }
   // send email with resend
   // update invoice with emailStatus
   const rootFileName = `factura_${invoice.salespointSucursal.toString().padStart(3, "0")}-${invoice.salespointPunto.toString().padStart(3, "0")}-${invoice.number.toString().padStart(7, "0")}`;
   const xmlString = `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Header/><soap:Body><rEnviDe xmlns="http://ekuatia.set.gov.py/sifen/xsd"><dId>120697</dId><xDE>${invoice.xml}</xDE></rEnviDe></soap:Body></soap:Envelope>`;
   const xmlFileName = `${rootFileName}.xml`;
   fs.writeFileSync(xmlFileName, xmlString);
-  const pdfBuffer = Buffer.from(kude.base64 , "base64");
+  const pdfBuffer = Buffer.from(kude.base64, "base64");
   const pdfFileName = `${rootFileName}.pdf`;
   fs.writeFileSync(pdfFileName, pdfBuffer);
   if (!invoice.customerEmail) {
@@ -87,7 +94,7 @@ async function sendInvoicesByEmail() {
       {
         filename: pdfFileName,
         content: fs.readFileSync(pdfFileName),
-      }
+      },
     ],
   });
   fs.unlinkSync(xmlFileName);
@@ -110,7 +117,7 @@ async function processInvoice() {
     console.log("No pending xml/sign invoices found");
     return;
   }
-
+  console.log('Found invoice', invoice.id);
   const invoiceJSON = await getInvoiceJSON(invoice, company, invoiceItems);
   if (!invoiceJSON) {
     console.log("Error generating invoice JSON");
@@ -146,7 +153,7 @@ async function processInvoice() {
         Id: cdc,
       },
       dDVId: dv,
-      dFecFirma: "2024-12-04T12:12:07",
+      dFecFirma: invoiceJSON.dFecFirma,
       dSisFact: 1,
       gOpeDE: {
         iTipEmi: invoiceJSON.iTipEmi,
@@ -215,14 +222,27 @@ async function processInvoice() {
   const xmlBuffer = Buffer.from(xmlPrefirma).toString("utf8");
   const { dRucEm, IdcSC, CSC } = invoiceJSON;
   const xmlSigned = await signXML(xmlBuffer, dRucEm, cdc, IdcSC, CSC);
+  console.log('xmlSigned', xmlSigned)
+  let invoiceUpdatedFields: { sifenStatus: string; xml?: string };
+  if (!xmlSigned) {
+    invoiceUpdatedFields = {
+      sifenStatus: "ERROR_FIRMA",
+    };
+    console.log("Error signing XML");
+  } else {
+    invoiceUpdatedFields = {
+      xml: xmlSigned,
+      sifenStatus: "PENDIENTE",
+    };
+  }
   // clipboard.writeSync(xmlSigned);
   // save xmlSigned and CDC to database
-  const invoiceUpdatedFields = {
-    xml: xmlSigned,
-    CDC: cdc,
-  };
-  await updateInvoice(invoiceUpdatedFields, invoice.id);
-  return processInvoice();
+  const updateResult = await updateInvoice(invoiceUpdatedFields, invoice.id);
+  if (!updateResult) {
+    console.log("Error updating invoice at processInvoice");
+    return;
+  }
+  return await processInvoice();
 }
 
 async function createInvoicesZip() {
@@ -264,7 +284,7 @@ async function sendZipToSIFEN() {
   // get zip invoices
   const zip = await getFirstPendingZip();
   if (!zip) return console.log("No pending zip found");
-
+  console.log("preparing to send zip id:", zip.id);
   const invoiceGetAllOptions = { attributes: ["id", "xml", "CDC"], where: { zipId: zip.id } };
   const invoices = await getAllInvoices(invoiceGetAllOptions);
   if (!invoices.length) {
@@ -303,7 +323,7 @@ async function sendZipToSIFEN() {
   output.on("close", async () => {
     const zipData = fs.readFileSync(`${zip.id}.zip`);
     const base64Zip = zipData.toString("base64");
-    // console.log(base64Zip);
+    console.log(base64Zip);
     const response = await sendZip(zip.id, zip.emisorRuc, base64Zip);
     if (response.success) {
       try {
@@ -315,13 +335,15 @@ async function sendZipToSIFEN() {
           // update zip status to ENVIADO
           await zip.update({ status: "ENVIADO", loteNro: dProtConsLote, envioXML: response.data });
           await Invoice.update({ sifenStatus: "ENVIADO" }, { where: { zipId: zip.id } });
+        } else {
+          console.log("Error sending zip to SIFEN", dCodRes);
         }
       } catch (error) {
         console.log("Error parsing response XML", error);
       }
     }
-    fs.unlinkSync(`${zip.id}.zip`);
-    fs.unlinkSync(`${zip.id}.xml`);
+    // fs.unlinkSync(`${zip.id}.zip`);
+    // fs.unlinkSync(`${zip.id}.xml`);
     // delete zip file and xml file
   });
 }
@@ -356,4 +378,34 @@ async function checkZipStatus() {
       console.log("Error updating invoices with sifen status", error);
     }
   }
+}
+
+async function processRepairedInvoice() {
+  const invoice = await getFirstRepairedInvoice();
+  if (!invoice) {
+    console.log("No pending repaired invoices found");
+    return;
+  }
+  const company = await getCompany(invoice.companyId);
+  if (!company) {
+    console.error("Error getting company");
+    return;
+  }
+  const currentTimestamp = new Date().getTime();
+  const newSecurityCode = Number(String(currentTimestamp).slice(0, -4));
+  const newCDC = getNewCDC(invoice, company, newSecurityCode);
+  const invoiceUpdatedFields = {
+    securityCode: newSecurityCode,
+    CDC: newCDC,
+    xml: null,
+    zipId: null,
+    sifenStatus: "PENDIENTE",
+  };
+  const result = await updateInvoice(invoiceUpdatedFields, invoice.id);
+  if (!result) {
+    console.log("Error updating repaired invoice");
+    return;
+  }
+  console.log("Repaired invoice updated!");
+  return processRepairedInvoice();
 }

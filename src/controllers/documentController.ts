@@ -7,6 +7,8 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { NODE_ENV } from "../config";
+import { Invoice } from "../models/invoice";
+import { Company } from "../models/company";
 
 const parser = new xml2js.Parser();
 const builder = new xml2js.Builder({ renderOpts: { pretty: false }, headless: true });
@@ -197,7 +199,6 @@ export const keyProvider = {
 };
 
 async function getDigestValue(xml: string): Promise<string> {
-  
   const result = await parser.parseStringPromise(xml);
   // const digestValue = result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0]["Signature"][0]["SignedInfo"][0]["Reference"][0]["DigestValue"][0];
   const digestValue = result["rDE"]["Signature"][0]["SignedInfo"][0]["Reference"][0]["DigestValue"][0];
@@ -281,7 +282,7 @@ const writeQRUrl = (xml: string, url: string) => {
   return xmlWithUrl;
 };
 
-export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: string, CSC: string): Promise<string> {
+export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: string, CSC: string): Promise<string | null> {
   try {
     const projectRoot = path.resolve(__dirname, "../../certificates/");
     const certificadoPemPath = path.join(projectRoot, `${ruc}.pem`);
@@ -289,11 +290,11 @@ export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: stri
 
     if (!fs.existsSync(certificadoPemPath)) {
       console.log(`No se encontró el archivo PEM en la ruta: ${certificadoPemPath}`);
-      return "";
+      return null;
     }
     if (!fs.existsSync(certificadoPubPath)) {
       console.log(`No se encontró el archivo PUB en la ruta: ${certificadoPubPath}`);
-      return "";
+      return null;
     }
 
     const certificadoPem = fs.readFileSync(certificadoPemPath, "utf8");
@@ -322,7 +323,8 @@ export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: stri
     const QRData = await getQRData(xml, digestValue);
 
     if (!QRData) {
-      return "";
+      console.error("Error getting QR data");
+      return null;
     }
 
     const {
@@ -345,6 +347,26 @@ export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: stri
     return signedXmlWithQR;
   } catch (error) {
     console.error(error);
-    return "";
+    return null;
   }
+}
+
+export function getNewCDC(invoice: Invoice, company: Company, securityCode: number): string {
+  // Construcción del CDC
+  const CDCData = {
+    documentoTipo: "01", // Tipo de documento TODO: make this dynamic
+    ruc: company.ruc.split("-")[0]!.padStart(8, "0"), // RUC con padding de 8 caracteres
+    digitoVerificador: company.ruc.split("-")[1]!, // Dígito verificador
+    establecimiento: invoice.salespointSucursal.toString().padStart(3, "0"), // Establecimiento (3 caracteres)
+    puntoExpedicion: invoice.salespointPunto.toString().padStart(3, "0"), // Punto de expedición (3 caracteres)
+    numeroDocumento: invoice.number.toString().padStart(7, "0"), // Número de documento (7 caracteres)
+    tipoContribuyente: company.type, // Tipo de contribuyente (Fijo)
+    fechaEmision: invoice.dateIssued.replace(/-/g, ""), // Fecha de emisión en formato YYYYMMDD
+    tipoEmision: "1", // Tipo de emisión
+    codigoDeSeguridad: securityCode.toString().padStart(9, "0"), // Código de seguridad (9 caracteres)
+  };
+  const CDC = `${CDCData.documentoTipo}${CDCData.ruc}${CDCData.digitoVerificador}${CDCData.establecimiento}${CDCData.puntoExpedicion}${CDCData.numeroDocumento}${CDCData.tipoContribuyente}${CDCData.fechaEmision}${CDCData.tipoEmision}${CDCData.codigoDeSeguridad}`;
+  const DV = calcularDV(CDC);
+  // Construir el CDC
+  return `${CDC}${DV}`;
 }

@@ -1904,7 +1904,7 @@ export const documentoSchema = z
       .number({
         invalid_type_error: "El campo dSub10 debe ser numérico",
       })
-      .positive({ message: "El campo dSub10 debe ser un número positivo" })
+      // .positive({ message: "El campo dSub10 debe ser un número positivo" })
       .refine(
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");
@@ -2235,9 +2235,9 @@ export const documentoSchema = z
       .number({
         invalid_type_error: "El campo dTotIVA debe ser numérico",
       })
-      .positive({
-        message: "El campo dTotIVA debe ser un número positivo",
-      })
+      // .positive({
+      //   message: "El campo dTotIVA debe ser un número positivo",
+      // })
       .refine(
         (value) => {
           const [integerPart, decimalPart] = value.toString().split(".");

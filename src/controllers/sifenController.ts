@@ -70,6 +70,7 @@ export async function getLoteStatus(loteNro: number, zipId: number, emisorRuc: s
       httpsAgent: getHttpAgent(emisorRuc),
     });
     try {
+      // console.log('response.data', response.data)
       const result = await parser.parseStringPromise(response.data);
       const loteResult = result.Envelope?.Body?.rResEnviConsLoteDe?.dCodResLot;
       switch (loteResult) {

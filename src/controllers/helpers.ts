@@ -125,9 +125,9 @@ export const getgCamCond = (body: any) => {
 export const getgTotSub = (body: any) => {
   if (body.iTiDE !== 7) {
     return {
-      dSubExe: 0,
+      dSubExe: body.dSubExe,
       dSubExo: 0,
-      dSub5: 0,
+      dSub5: body.dSub5,
       dSub10: body.dSub10,
       dTotOpe: body.dTotOpe,
       dTotDesc: body.dTotDesc,
