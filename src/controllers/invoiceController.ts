@@ -136,7 +136,7 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
     iTipEmi: 1,
     dCodSeg: invoice.securityCode,
     iTiDE: 1, //Factura
-    dNumTim: invoice.timbrado,
+    dNumTim: invoice.timbrado.toString().padStart(8, "0"),
     dEst: invoice.salespointSucursal.toString().padStart(3, "0"),
     dPunExp: invoice.salespointPunto.toString().padStart(3, "0"),
     dNumDoc: invoice.number.toString().padStart(7, "0"),

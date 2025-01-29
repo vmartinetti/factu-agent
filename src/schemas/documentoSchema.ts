@@ -394,12 +394,18 @@ export const documentoSchema = z
       }),
 
     dNumTim: z
-      .number({
-        invalid_type_error: "El campo dNumTim debe ser del tipo numérico",
-      })
-      .refine((value) => /^\d{8}$/.test(value.toString()), {
-        message: "El campo dNumTim debe tener exactamente 8 dígitos",
+      .string({
+        invalid_type_error: "El campo dNumTim debe ser del tipo alfanumérico",
+      }).length(8, {
+        message: "El campo dNumTim debe tener exactamente 8 caracteres",
       }),
+
+      // .number({
+      //   invalid_type_error: "El campo dNumTim debe ser del tipo numérico",
+      // })
+      // .refine((value) => /^\d{7}$/.test(value.toString()), {
+      //   message: "El campo dNumTim debe tener exactamente 8 dígitos",
+      // }),
 
     dEst: z
       .string({

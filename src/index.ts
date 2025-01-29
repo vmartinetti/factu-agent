@@ -128,6 +128,13 @@ async function processInvoice() {
   const isValid = await validateJSON(invoiceJSON);
   if (!isValid.success) {
     console.log("Error validating JSON on invoiceId:", invoice.id, isValid.errors);
+    const invoiceUpdatedFields = {
+      sifenStatus: "ERROR_JSON",
+    };
+    const updateResult = await updateInvoice(invoiceUpdatedFields, invoice.id);
+    if (!updateResult) {
+      console.log("Error updating invoice at processInvoice");
+    }
     return;
   }
 
