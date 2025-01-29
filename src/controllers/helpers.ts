@@ -4,6 +4,8 @@ import { paisesList } from "../geographic";
 import https from "https";
 import fs from "fs";
 import path from "path";
+import { calcularDV } from "./documentController";
+import { getCompanyByRuc } from "./companyController";
 
 const parser = new xml2js.Parser();
 const builder = new xml2js.Builder();
@@ -260,9 +262,25 @@ export const obtenerDigestValue = async (xml: string): Promise<string> => {
   return result["soap:Envelope"]["soap:Body"][0]["rEnviDe"][0]["xDE"][0]["rDE"][0]["Signature"][0]["SignedInfo"][0]["Reference"][0]["DigestValue"][0];
 };
 
-export function getHttpAgent(emisorRuc: string) {
+export async function getHttpAgent(emisorRuc: string) {
+  const dv = calcularDV(emisorRuc);
+  if (!dv) {
+    console.error("Error calculating DV");
+    return null;
+  }
+  const rucWithDV = `${emisorRuc}-${dv}`;
+  const company = await getCompanyByRuc(rucWithDV);
+  if (!company) {
+    console.error("Company not found");
+    return null;
+  }
+  if (!company.certificatePassword) {
+    console.error("Certificate password not found");
+    return null;
+  }
+  const p12Password = company.certificatePassword;
+
   const p12Path = path.resolve(__dirname, `../../certificates/${emisorRuc}.p12`);
-  const p12Password = "Fp3!yE4y";
   const httpsAgent = new https.Agent({
     pfx: fs.readFileSync(p12Path),
     passphrase: p12Password,

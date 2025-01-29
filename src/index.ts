@@ -9,7 +9,7 @@ import fs from "fs";
 import archiver from "archiver";
 import { getLoteStatus, sendZip } from "./controllers/sifenController";
 import { createEmptyZip, getFirstPendingZip, getFirstSentZip } from "./controllers/zipController";
-import { getCompany } from "./controllers/company";
+import { getCompany } from "./controllers/companyController";
 import xml2js from "xml2js";
 import { Invoice } from "./models/invoice";
 import { schedule } from "node-cron";
@@ -117,7 +117,7 @@ async function processInvoice() {
     console.log("No pending xml/sign invoices found");
     return;
   }
-  console.log('Found invoice', invoice.id);
+  console.log("Found invoice", invoice.id);
   const invoiceJSON = await getInvoiceJSON(invoice, company, invoiceItems);
   if (!invoiceJSON) {
     console.log("Error generating invoice JSON");
@@ -222,7 +222,6 @@ async function processInvoice() {
   const xmlBuffer = Buffer.from(xmlPrefirma).toString("utf8");
   const { dRucEm, IdcSC, CSC } = invoiceJSON;
   const xmlSigned = await signXML(xmlBuffer, dRucEm, cdc, IdcSC, CSC);
-  console.log('xmlSigned', xmlSigned)
   let invoiceUpdatedFields: { sifenStatus: string; xml?: string };
   if (!xmlSigned) {
     invoiceUpdatedFields = {
@@ -323,28 +322,33 @@ async function sendZipToSIFEN() {
   output.on("close", async () => {
     const zipData = fs.readFileSync(`${zip.id}.zip`);
     const base64Zip = zipData.toString("base64");
-    console.log(base64Zip);
+    // console.log(base64Zip);
     const response = await sendZip(zip.id, zip.emisorRuc, base64Zip);
-    if (response.success) {
-      try {
-        const result = await parser.parseStringPromise(response.data);
-        const dCodRes = result["env:Envelope"]["env:Body"]["ns2:rResEnviLoteDe"]["ns2:dCodRes"];
-        const dProtConsLote = result["env:Envelope"]["env:Body"]["ns2:rResEnviLoteDe"]["ns2:dProtConsLote"];
-        if (dCodRes === "0300") {
-          console.log("Zip received by SIFEN!");
-          // update zip status to ENVIADO
-          await zip.update({ status: "ENVIADO", loteNro: dProtConsLote, envioXML: response.data });
-          await Invoice.update({ sifenStatus: "ENVIADO" }, { where: { zipId: zip.id } });
-        } else {
-          console.log("Error sending zip to SIFEN", dCodRes);
-        }
-      } catch (error) {
-        console.log("Error parsing response XML", error);
-      }
+    if (!response.success) {
+      console.log("Error sending zip to SIFEN", response.error);
+      // delete zip file and xml file
+      fs.unlinkSync(`${zip.id}.zip`);
+      fs.unlinkSync(`${zip.id}.xml`);
     }
-    // fs.unlinkSync(`${zip.id}.zip`);
-    // fs.unlinkSync(`${zip.id}.xml`);
-    // delete zip file and xml file
+    try {
+      const result = await parser.parseStringPromise(response.data);
+      const dCodRes = result["env:Envelope"]["env:Body"]["ns2:rResEnviLoteDe"]["ns2:dCodRes"];
+      const dProtConsLote = result["env:Envelope"]["env:Body"]["ns2:rResEnviLoteDe"]["ns2:dProtConsLote"];
+      if (dCodRes === "0300") {
+        console.log("Zip received by SIFEN!");
+        // update zip status to ENVIADO
+        await zip.update({ status: "ENVIADO", loteNro: dProtConsLote, envioXML: response.data });
+        await Invoice.update({ sifenStatus: "ENVIADO" }, { where: { zipId: zip.id } });
+      } else {
+        console.log("Error sending zip to SIFEN", dCodRes);
+      }
+    } catch (error) {
+      console.log("Error parsing response XML", error);
+    } finally {
+      // delete zip file and xml file
+      fs.unlinkSync(`${zip.id}.zip`);
+      fs.unlinkSync(`${zip.id}.xml`);
+    }
   });
 }
 

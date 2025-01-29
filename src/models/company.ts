@@ -33,6 +33,7 @@ export class Company extends Model {
   declare CSC: string;
   declare economicActivityCod: number;
   declare economicActivityDesc: string;
+  declare certificatePassword: string;
 }
 
 Company.init({
@@ -73,7 +74,8 @@ Company.init({
   idCSC: DataTypes.INTEGER,
   CSC: DataTypes.STRING,
   economicActivityCod: DataTypes.INTEGER,
-  economicActivityDesc: DataTypes.STRING
+  economicActivityDesc: DataTypes.STRING,
+  certificatePassword: DataTypes.STRING
 }, {
   sequelize,
   modelName: 'company',

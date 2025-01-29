@@ -4,11 +4,11 @@ import xml2js from "xml2js";
 import { xmlToJsonUtil } from "xml-to-json-util";
 import { SignedXml } from "xml-crypto";
 import fs from "fs";
-import path from "path";
 import crypto from "crypto";
 import { NODE_ENV } from "../config";
 import { Invoice } from "../models/invoice";
 import { Company } from "../models/company";
+import { getCertificatePaths } from "./certificateController";
 
 const parser = new xml2js.Parser();
 const builder = new xml2js.Builder({ renderOpts: { pretty: false }, headless: true });
@@ -284,10 +284,19 @@ const writeQRUrl = (xml: string, url: string) => {
 
 export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: string, CSC: string): Promise<string | null> {
   try {
-    const projectRoot = path.resolve(__dirname, "../../certificates/");
-    const certificadoPemPath = path.join(projectRoot, `${ruc}.pem`);
-    const certificadoPubPath = path.join(projectRoot, `${ruc}.pub`);
+    // const projectRoot = path.resolve(__dirname, "../../certificates/");
+    // const certificadoPemPath = path.join(projectRoot, `${ruc}.pem`);
+    // const certificadoPubPath = path.join(projectRoot, `${ruc}.pub`);
 
+    
+    // const certificadoPem = fs.readFileSync(certificadoPemPath, "utf8");
+    const paths = await getCertificatePaths(ruc);
+    if (!paths) {
+      console.error("Error getting certificate paths");
+      return null;
+    }
+    const { certificadoPemPath, certificadoPubPath } = paths;
+    
     if (!fs.existsSync(certificadoPemPath)) {
       console.log(`No se encontró el archivo PEM en la ruta: ${certificadoPemPath}`);
       return null;
@@ -296,9 +305,8 @@ export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: stri
       console.log(`No se encontró el archivo PUB en la ruta: ${certificadoPubPath}`);
       return null;
     }
-
+    
     const certificadoPem = fs.readFileSync(certificadoPemPath, "utf8");
-    // const certificadoPub = fs.readFileSync(certificadoPubPath, 'utf8');
 
     const sig = new SignedXml();
     sig.signatureAlgorithm = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";

@@ -7,3 +7,11 @@ export async function getCompany(companyId: string) {
   }
   return company;
 }
+
+export async function getCompanyByRuc(ruc: string) {
+  const company = await Company.findOne({ where: { ruc } });
+  if (!company) {
+    return null;
+  }
+  return company;
+}

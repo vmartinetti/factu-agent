@@ -31,7 +31,7 @@ export async function sendZip(zipId: number, emisorRuc: string, base64zip: strin
       headers: {
         "Content-Type": "application/soap+xml; charset=utf-8",
       },
-      httpsAgent: getHttpAgent(emisorRuc),
+      httpsAgent: await getHttpAgent(emisorRuc),
     });
     return { success: true, data: response.data };
   } catch (error) {
@@ -67,7 +67,7 @@ export async function getLoteStatus(loteNro: number, zipId: number, emisorRuc: s
       headers: {
         "Content-Type": "application/soap+xml; charset=utf-8",
       },
-      httpsAgent: getHttpAgent(emisorRuc),
+      httpsAgent: await getHttpAgent(emisorRuc),
     });
     try {
       // console.log('response.data', response.data)
