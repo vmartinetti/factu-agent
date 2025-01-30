@@ -332,10 +332,21 @@ async function sendZipToSIFEN() {
     // console.log(base64Zip);
     const response = await sendZip(zip.id, zip.emisorRuc, base64Zip);
     if (!response.success) {
-      console.log("Error sending zip to SIFEN", response.error);
+      try{
+        await zip.update({ status: "ERROR_SENDING" });
+      } catch (error) {
+        return console.error("Error updating zip status", error);
+      }
       // delete zip file and xml file
-      fs.unlinkSync(`${zip.id}.zip`);
-      fs.unlinkSync(`${zip.id}.xml`);
+      try {
+        fs.unlinkSync(`${zip.id}.zip`);
+        fs.unlinkSync(`${zip.id}.xml`);
+      } catch (error) {
+        console.log("Seems like the files don't exist yet or anymore");
+      } finally {
+        console.error("Error sending zip to SIFEN:", response.error);
+        return;
+      }
     }
     try {
       const result = await parser.parseStringPromise(response.data);
@@ -347,14 +358,18 @@ async function sendZipToSIFEN() {
         await zip.update({ status: "ENVIADO", loteNro: dProtConsLote, envioXML: response.data });
         await Invoice.update({ sifenStatus: "ENVIADO" }, { where: { zipId: zip.id } });
       } else {
-        console.log("Error sending zip to SIFEN", dCodRes);
+        console.error("Error getting result from zip sent to SIFEN", dCodRes);
       }
     } catch (error) {
-      console.log("Error parsing response XML", error);
+      console.error("Error parsing response XML", error);
     } finally {
-      // delete zip file and xml file
-      fs.unlinkSync(`${zip.id}.zip`);
-      fs.unlinkSync(`${zip.id}.xml`);
+      try{
+        // delete zip file and xml file
+        fs.unlinkSync(`${zip.id}.zip`);
+        fs.unlinkSync(`${zip.id}.xml`);
+      }catch(error){
+        console.log("Seems like the files don't exist yet or anymore");
+      }
     }
   });
 }

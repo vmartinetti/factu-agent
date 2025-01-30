@@ -25,13 +25,16 @@ export async function sendZip(zipId: number, emisorRuc: string, base64zip: strin
       </soap:Body>
     </soap:Envelope>
   `;
-
+  const httpsAgent = await getHttpAgent(emisorRuc);
+  if (!httpsAgent) {
+    return { success: false, error: "Error getting httpsAgent on sendZip" };
+  }
   try {
     const response = await axios.post(url, soapEnvelope, {
       headers: {
         "Content-Type": "application/soap+xml; charset=utf-8",
       },
-      httpsAgent: await getHttpAgent(emisorRuc),
+      httpsAgent: httpsAgent,
     });
     return { success: true, data: response.data };
   } catch (error) {
@@ -62,12 +65,16 @@ export async function getLoteStatus(loteNro: number, zipId: number, emisorRuc: s
     </soap:Body>
     </soap:Envelope>
   `;
+  const httpsAgent = await getHttpAgent(emisorRuc);
+  if (!httpsAgent) {
+    return { success: false, error: "Error getting httpsAgent" };
+  }
   try {
     const response = await axios.post(url, soapEnvelope, {
       headers: {
         "Content-Type": "application/soap+xml; charset=utf-8",
       },
-      httpsAgent: await getHttpAgent(emisorRuc),
+      httpsAgent: httpsAgent,
     });
     try {
       // console.log('response.data', response.data)
