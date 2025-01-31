@@ -9,7 +9,7 @@ export class Zip extends Model {
   declare updatedAt: Date;
   declare consultaXML: string;
   declare envioXML: string;
-  declare loteNro: number;
+  declare loteNro: string;
 }
 
 Zip.init({
@@ -22,7 +22,7 @@ Zip.init({
   emisorRuc: DataTypes.STRING,
   consultaXML: DataTypes.STRING,
   envioXML: DataTypes.STRING,
-  loteNro: DataTypes.BIGINT
+  loteNro: DataTypes.STRING,
 }, {
   sequelize,
   modelName: 'zip',

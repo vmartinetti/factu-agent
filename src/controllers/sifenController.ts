@@ -50,7 +50,7 @@ export async function sendZip(zipId: number, emisorRuc: string, base64zip: strin
   }
 }
 
-export async function getLoteStatus(loteNro: number, zipId: number, emisorRuc: string) {
+export async function getLoteStatus(loteNro: string, zipId: number, emisorRuc: string) {
   const url = NODE_ENV === "production" ? "https://sifen.set.gov.py/de/ws/consultas/consulta-lote.wsdl" : "https://sifen-test.set.gov.py/de/ws/consultas/consulta-lote.wsdl";
   const soapEnvelope = `
   <soap:Envelope
