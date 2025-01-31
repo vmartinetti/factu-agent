@@ -36,24 +36,45 @@ sequelize
 
 // function that creates CRON jobs
 function scheduleJobs() {
-  schedule("*/60 * * * * *", () => {
-    processInvoice();
-  });
-  schedule("*/60 * * * * *", () => {
-    createInvoicesZip();
-  });
-  schedule("*/60 * * * * *", () => {
-    sendZipToSIFEN();
-  });
-  schedule("*/60 * * * * *", () => {
-    checkZipStatus();
-  });
-  schedule("*/33 * * * * *", () => {
-    sendInvoicesByEmail();
-  });
-  schedule("*/43 * * * * *", () => {
-    processRepairedInvoice();
-  });
+  if (process.env.NODE_ENV === 'production') {
+    schedule("0 * * * *", () => { // every hour at minute 0
+      processInvoice();
+    });
+    schedule("20 * * * *", () => { // every hour at minute 20
+      createInvoicesZip();
+    });
+    schedule("0 * * * *", () => { // every hour at minute 0
+      sendZipToSIFEN();
+    });
+    schedule("0 * * * *", () => { // every hour at minute 0
+      checkZipStatus();
+    });
+    schedule("*/2 * * * *", () => { // every 2 minutes
+      sendInvoicesByEmail();
+    });
+    schedule("*/45 * * * *", () => { // every 45 minutes
+      processRepairedInvoice();
+    });
+  } else {
+    schedule("*/60 * * * * *", () => { // every 60 seconds
+      processInvoice();
+    });
+    schedule("*/60 * * * * *", () => { // every 60 seconds
+      createInvoicesZip();
+    });
+    schedule("*/60 * * * * *", () => { // every 60 seconds
+      sendZipToSIFEN();
+    });
+    schedule("*/60 * * * * *", () => { // every 60 seconds
+      checkZipStatus();
+    });
+    schedule("*/33 * * * * *", () => { // every 33 seconds
+      sendInvoicesByEmail();
+    });
+    schedule("*/43 * * * * *", () => { // every 43 seconds
+      processRepairedInvoice();
+    });
+  }
 }
 
 async function sendInvoicesByEmail() {
