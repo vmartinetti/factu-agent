@@ -1,5 +1,5 @@
 import xml2js from "xml2js";
-import { dDCondCredList, dDCondOpeList, dDesAfecIVAList, dDesDenTarjList, dDesIndPresList, dDesMoneOpeList, dDesMotEmiList, dDesTImpList, dDesTiPagList, dDesTipDocAsoList, dDesTipTraList, dDesUniMedList, dDTipIDRespDEList } from "../constants";
+import { dDCondCredList, dDCondOpeList, dDesAfecIVAList, dDesDenTarjList, dDesIndPresList, dDesMoneOpeList, dDesMotEmiList, dDesTImpList, dDesTiPagList, dDesTipDocAsoList, dDesTipTraList, dDesUniMedList, dDTipIDRecList } from "../constants";
 import { paisesList } from "../geographic";
 import https from "https";
 import fs from "fs";
@@ -10,10 +10,10 @@ import { getCompanyByRuc } from "./companyController";
 const parser = new xml2js.Parser();
 const builder = new xml2js.Builder();
 
-export const getDescription = (id: string | number, lista: { id: number | string; descripcion: string | number }[]) => {
+export const getDescription = (id: string | number, lista: { id: number | string; descripcion: string | number }[], listaNombre: string) => {
   const found = lista.find((item) => String(item.id) === String(id));
   if (!found) {
-    console.log(`Datos faltantes en GetDescription: ID: ${id}, Lista: ${lista}`);
+    console.error(`Datos faltantes en GetDescription: ID: ${id}, Lista: ${listaNombre}`);
 
     return null;
   }
@@ -24,11 +24,11 @@ export const getgOpeCom = (body: any) => {
   if (body.iTiDE !== 7) {
     const gOpeCom: any = {
       iTipTra: body.iTiDE === 1 || body.iTiDE === 4 ? body.iTipTra : "null",
-      dDesTipTra: body.iTiDE === 1 || body.iTiDE === 4 ? getDescription(body.iTipTra, dDesTipTraList) : "null",
+      dDesTipTra: body.iTiDE === 1 || body.iTiDE === 4 ? getDescription(body.iTipTra, dDesTipTraList, "dDesTipTraList") : "null",
       iTImp: body.iTImp,
-      dDesTImp: getDescription(body.iTImp, dDesTImpList),
+      dDesTImp: getDescription(body.iTImp, dDesTImpList, "dDesTImpList"),
       cMoneOpe: body.cMoneOpe,
-      dDesMoneOpe: getDescription(body.cMoneOpe, dDesMoneOpeList),
+      dDesMoneOpe: getDescription(body.cMoneOpe, dDesMoneOpeList, "dDesMoneOpeList"),
     };
     return gOpeCom;
   }
@@ -39,7 +39,7 @@ export const getgCamFE = (body: any) => {
   if (body.iTiDE === 1) {
     return {
       iIndPres: body.iIndPres,
-      dDesIndPres: getDescription(body.iIndPres, dDesIndPresList),
+      dDesIndPres: getDescription(body.iIndPres, dDesIndPresList, "dDesIndPresList"),
     };
   }
   return "null";
@@ -51,7 +51,7 @@ const getgPagTarCD = (body: any) => {
   if (body.iTiPago === 3 || body.iTiPago === 4) {
     return {
       iDenTarj: body.iDenTarj,
-      dDesDenTarj: getDescription(body.iDenTarj, dDesDenTarjList),
+      dDesDenTarj: getDescription(body.iDenTarj, dDesDenTarjList, "dDesDenTarjList"),
       iForProPa: body.iForProPa,
     };
   }
@@ -71,14 +71,14 @@ const getgPagCred = (body: any) => {
   if (body.iCondOpe === 2) {
     const gPagCred: any = {
       iCondCred: body.iCondCred,
-      dDCondCred: getDescription(body.iCondCred, dDCondCredList),
+      dDCondCred: getDescription(body.iCondCred, dDCondCredList, "dDCondCredList"),
       dPlazoCre: body.iCondCred === 1 ? body.dPlazoCre : "null",
     };
 
     if (body.iCondCred === 2) {
       gPagCred.gCuotas = {
         cMoneCuo: body.cMoneCuo,
-        dDMoneCuo: getDescription(body.cMoneCuo, dDesMoneOpeList),
+        dDMoneCuo: getDescription(body.cMoneCuo, dDesMoneOpeList, "dDesMoneOpeList"),
         dMonCuota: body.dMonCuota,
       };
     }
@@ -91,10 +91,10 @@ export const getgPaConEIni = (body: any) => {
   if (body.iCondOpe === 1) {
     return {
       iTiPago: body.iTiPago,
-      dDesTiPag: getDescription(body.iTiPago, dDesTiPagList),
+      dDesTiPag: getDescription(body.iTiPago, dDesTiPagList, "dDesTiPagList"),
       dMonTiPag: body.dMonTiPag,
       cMoneTiPag: body.cMoneTiPag,
-      dDMoneTiPag: getDescription(body.cMoneTiPag, dDesMoneOpeList),
+      dDMoneTiPag: getDescription(body.cMoneTiPag, dDesMoneOpeList, "dDesMoneOpeList"),
       gPagTarCD: getgPagTarCD(body),
       gPagCheq: getgPagCheq(body),
     };
@@ -106,7 +106,7 @@ export const getgCamNCDE = (body: any) => {
   if (body.iTiDE === 5 || body.iTiDE === 6) {
     return {
       iMotEmi: body.iMotEmi,
-      dDesMotEmi: getDescription(body.iMotEmi, dDesMotEmiList),
+      dDesMotEmi: getDescription(body.iMotEmi, dDesMotEmiList, "dDesMotEmiList"),
     };
   }
   return "null";
@@ -116,7 +116,7 @@ export const getgCamCond = (body: any) => {
   if (body.iTiDE === 1 || body.iTiDE === 4) {
     return {
       iCondOpe: body.iCondOpe,
-      dDCondOpe: getDescription(body.iCondOpe, dDCondOpeList),
+      dDCondOpe: getDescription(body.iCondOpe, dDCondOpeList, "dDCondOpeList"),
       gPaConEIni: getgPaConEIni(body),
       gPagCred: getgPagCred(body),
     };
@@ -160,7 +160,7 @@ export const getgCamDEAsoc = (body: any) => {
   if (body.iTiDE === 4 || body.iTiDE === 5 || body.iTiDE === 6) {
     return {
       iTipDocAso: body.iTipDocAso,
-      dDesTipDocAso: getDescription(body.iTipDocAso, dDesTipDocAsoList),
+      dDesTipDocAso: getDescription(body.iTipDocAso, dDesTipDocAsoList, "dDesTipDocAsoList"),
     };
   }
   return "null";
@@ -171,12 +171,12 @@ export const getgDatRec = (body: any) => {
     iNatRec: body.iNatRec,
     iTiOpe: body.iTiOpe,
     cPaisRec: body.cPaisRec,
-    dDesPaisRe: getDescription(body.cPaisRec, paisesList),
+    dDesPaisRe: getDescription(body.cPaisRec, paisesList, "paisesList"),
     iTiContRec: body.iNatRec === 1 ? body.iTiContRec : "null",
     dRucRec: body.iNatRec === 1 ? body.dRucRec : "null",
     dDVRec: body.iNatRec === 1 ? body.dDVRec : "null",
     iTipIDRec: body.iNatRec !== 1 ? body.iTipIDRec : "null",
-    dDTipIDRec: body.iNatRec !== 1 ? getDescription(body.iTipIDRec, dDTipIDRespDEList) : "null",
+    dDTipIDRec: body.iNatRec !== 1 ? getDescription(body.iTipIDRec, dDTipIDRecList, "dDTipIDRecList") : "null",
     dNumIDRec: body.iNatRec !== 1 ? body.dNumIDRec : "null",
     dNomRec: body.dNomRec,
     // dDirRec: body.dDirRec,
@@ -197,7 +197,7 @@ const getgCamIVA = (iTImp: number, iTiDE: number, item: any) => {
   if ((iTImp === 1 || iTImp === 3 || iTImp === 4 || iTImp === 5) && iTiDE !== 4 && iTiDE !== 7) {
     return {
       iAfecIVA: item.iAfecIVA,
-      dDesAfecIVA: getDescription(item.iAfecIVA, dDesAfecIVAList),
+      dDesAfecIVA: getDescription(item.iAfecIVA, dDesAfecIVAList,'dDesAfecIVAList'),
       dPropIVA: item.dPropIVA,
       dTasaIVA: item.dTasaIVA,
       dBasGravIVA: item.dBasGravIVA,
@@ -222,7 +222,7 @@ export const buildItemsDet = (itemsDet: any, body: any) => {
       dCodInt: item.dCodInt,
       dDesProSer: item.dDesProSer,
       cUniMed: item.cUniMed,
-      dDesUniMed: getDescription(item.cUniMed, dDesUniMedList),
+      dDesUniMed: getDescription(item.cUniMed, dDesUniMedList, "dDesUniMedList"),
       dCantProSer: item.dCantProSer,
       gValorItem: {
         dPUniProSer: item.dPUniProSer,

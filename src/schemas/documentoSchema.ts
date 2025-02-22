@@ -1068,7 +1068,7 @@ export const documentoSchema = z
       .refine((value) => (value >= 1 && value <= 21) || value === 99, {
         message:
           "El campo iTiPago debe ser 1 (Efectivo) o 2 (Cheque) o 3 (Tarjeta de crédito) o 4 (Tarjeta de débito) o 5 (Transferencia), 6 (Giro) o 7 (Billetera electrónica) o 8 (Tarjeta empresarial) o 9 (Vale) o 10 (Retención) o 11 (Pago por anticipo) o 12 (Valor fiscal) o 13 (Valor comercial) o 14 (Compensación) o 15 (Permuta) o 16 (Pago bancario) o 17 (Pago Móvil) o 18 (Donación) o 19 (Promoción) o 20 (Consumo Interno) o 21 (Pago Electrónico) o 99 (Otro)",
-      }),
+      }).optional(),
 
     dMonTiPag: z
       .number({
@@ -2528,7 +2528,7 @@ export const documentoSchema = z
       iTiOpe,
       iTipIDRec,
       dNumIDRec,
-      dDTipIDRec,
+      // dDTipIDRec,
       dDirRec,
       dNumCasRec,
       cDepRec,
@@ -2797,16 +2797,18 @@ export const documentoSchema = z
       }
     }
 
-    if (iTipIDRec !== undefined && iTipIDRec !== null) {
-      if (dDTipIDRec === undefined || dDTipIDRec === null) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message:
-            "El campo dDTipIDRec es requerido si existe el campo iTipIDRec.",
-          path: ["dDTipIDRec"],
-        });
-      }
-    }
+    // TODO: check if we will remove this definitely
+
+    // if (iTipIDRec !== undefined && iTipIDRec !== null) {
+    //   if (dDTipIDRec === undefined || dDTipIDRec === null) {
+    //     ctx.addIssue({
+    //       code: z.ZodIssueCode.custom,
+    //       message:
+    //         "El campo dDTipIDRec es requerido si existe el campo iTipIDRec.",
+    //       path: ["dDTipIDRec"],
+    //     });
+    //   }
+    // }
 
     if (iTiDE === 7 || iTiOpe === 4) {
       if (dDirRec === undefined || dDirRec === null) {

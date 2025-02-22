@@ -65,8 +65,8 @@ export async function getFirstPendingInvoiceData() {
       where: {
         annulled: false,
         sifenStatus: "PENDIENTE",
-        CDC: {[Op.ne]: null},
-        xml: null
+        CDC: { [Op.ne]: null },
+        xml: null,
       },
       logging: false,
     });
@@ -127,6 +127,7 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
   const dRucEm = company.ruc.split("-")[0];
   const dRucRec = invoice.customerDocId.split("-")[0];
   const dDVRecString = invoice.customerDocId.split("-")[1];
+  const esInnominada = invoice.customerDocId === "44444401-7";
   if (!dDVRecString) return null;
   const dDVRec = parseInt(dDVRecString);
   const invoiceJSONWithNull = {
@@ -166,13 +167,18 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
     dNomRespDE: company.feResponsibleName,
     dDTipIDRespDE: "Cédula paraguaya",
     dCarRespDE: "Facturador",
-    iNatRec: invoice.customerDocId.includes("-") ? 1 : 2,
+    iNatRec: esInnominada ? 2 : invoice.customerDocId.includes("-") ? 1 : 2,
     iTiOpe: invoice.customerDocId.includes("-") && invoice.customerDocId.startsWith("800") ? 1 : 2,
     cPaisRec: "PRY",
     iTiContRec: invoice.customerDocId.includes("-") ? (invoice.customerDocId.startsWith("800") ? 1 : 2) : null,
-    dDVRec: dDVRec,
-    dRucRec: dRucRec,
+    dRucRec: !esInnominada && invoice.customerDocId.includes("-") ? dRucRec : null,
+    dDVRec: !esInnominada && invoice.customerDocId.includes("-") ? dDVRec : null,
     dNomRec: invoice.customerName,
+    //
+    iTipIDRec: esInnominada ? 5 : !invoice.customerDocId.includes("-") ? 1 : null,
+    // dDTipIDRec: esInnominada ? "Innominado" : !invoice.customerDocId.includes("-") ? "Cédula paraguaya" : null,
+    dNumIDRec: esInnominada ? "0" : !invoice.customerDocId.includes("-") ? invoice.customerDocId : null,
+    //
     // dNomFanRec: invoice.customerName,
     // dDirRec: invoice.customerAddress,
     // dNumCasRec: 0,
@@ -187,7 +193,7 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
     // dCodCliente: "0000614",
     iIndPres: 1,
     iCondOpe: invoice.condition === "CONTADO" ? 1 : 2,
-    iTiPago: invoice.condition === "CONTADO" ? 1 : null,
+    iTiPago: invoice.condition === "CONTADO" ? 1 : null, // TODO: implement when CREDITO has initial payment
     dMonTiPag: invoice.condition === "CONTADO" ? Number(invoice.total) : null,
     cMoneTiPag: invoice.condition === "CONTADO" ? invoice.currencyCode : null,
     dDMoneTiPag: invoice.condition === "CONTADO" ? (invoice.currencyCode === "PYG" ? "Guaraní" : "Dolar") : null,
@@ -286,7 +292,7 @@ export async function getFirstRepairedInvoice() {
     const invoice = await Invoice.findOne({
       where: {
         annulled: false,
-        sifenStatus: "REPARADO"
+        sifenStatus: "REPARADO",
       },
       order: [["createdAt", "ASC"]],
       logging: false,
