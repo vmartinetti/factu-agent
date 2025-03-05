@@ -20,9 +20,7 @@ export function getDefaultHTML(invoice: Invoice, company: Company) {
     <tr>
       <td>
         <p>Hola <strong>${invoice.customerName}</strong>,</p>
-        <p>Adjunto encontrarás la factura electrónica correspondiente a tu compra realizada el <strong>${moment(invoice.dateIssued).format("DD/MM/yyyy")}</strong>. Agradecemos tu confianza en <strong>${
-    company.nombreFantasia || company.razonSocial
-  }</strong> y estamos aquí para cualquier consulta que tengas.</p>
+        <p>Adjunto encontrarás tu factura electrónica.</p>
 
         <h3 style="color: #007bff;">Detalles de la factura:</h3>
         <ul>
@@ -34,7 +32,7 @@ export function getDefaultHTML(invoice: Invoice, company: Company) {
         <p>¡Gracias por tu preferencia!</p>
 
         <p style="margin-top: 30px;">Saludos cordiales,<br>
-        <strong>${company.nombreFantasia || company.razonSocial}</strong>
+        <strong>${company.nombreFantasia || company.razonSocial}</strong></p>
       </td>
     </tr>
   </table>
@@ -101,7 +99,7 @@ export const dDesTImpList = [
 
 export const dDesMoneOpeList = [
   { id: "PYG", descripcion: "Guarani" },
-  { id: "USD", descripcion: "Dolar estadounidense" },
+  { id: "USD", descripcion: "US Dollar" },
   { id: "BRL", descripcion: "Real brasileño" },
   { id: "EUR", descripcion: "Euro" },
 ];

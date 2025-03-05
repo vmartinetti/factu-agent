@@ -146,6 +146,8 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
     iTImp: 1, // IVA
     iTipTra: 3, // 1-Venta de merc, 2-Prestación serv, 3- mixto
     cMoneOpe: invoice.currencyCode,
+    dTiCam: invoice?.exchangeRate ? Number(invoice.exchangeRate) : null,
+    dCondTiCam: invoice.currencyCode === "PYG" ? null : 1,
     dRucEm: dRucEm,
     dDVEmi: parseInt(dDVEmiString),
     iTipCont: company.type, //1- Persona fisica, 2- Persona juridica
@@ -221,7 +223,7 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
     dTotIVA: Number(invoice.iva5Total) + Number(invoice.iva10Total),
     dBaseGrav5: invoice.gravada5Total > 0 ? Number(invoice.gravada5Total) - Number(invoice.iva5Total) : 0,
     dBaseGrav10: invoice.gravada10Total > 0 ? Number(invoice.gravada10Total) - Number(invoice.iva10Total) : 0,
-    dTBasGraIVA: Number(invoice.gravada5Total) + Number(invoice.gravada10Total) - Number(invoice.iva5Total) - Number(invoice.iva10Total),
+    dTBasGraIVA: Math.round((Number(invoice.gravada5Total) + Number(invoice.gravada10Total) - Number(invoice.iva5Total) - Number(invoice.iva10Total)) * 100) / 100,
     // dTotalGs: TODO: to check when USD is used
     itemsDet: invoiceItems.map((item, index) => ({
       dCodInt: String(index + 1), //TODO: item.articleCode,

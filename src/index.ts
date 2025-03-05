@@ -102,7 +102,7 @@ async function sendInvoicesByEmail() {
   }
 
   const { error } = await resend.emails.send({
-    from: "Factu <factura.electronica@registro.factu.com.py>",
+    from: "Factu <factura.electronica@factu.com.py>",
     to: invoice.customerEmail,
     subject: `Tu factura electrónica de ${company.nombreFantasia || company.razonSocial}`,
     text: getDefaultText(invoice, company),
@@ -144,7 +144,7 @@ async function processInvoice() {
     console.log("Error generating invoice JSON");
     return;
   }
-
+  
   // test with zod
   const isValid = await validateJSON(invoiceJSON);
   if (!isValid.success) {

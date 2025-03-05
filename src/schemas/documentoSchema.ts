@@ -532,9 +532,9 @@ export const documentoSchema = z
         invalid_type_error: "El campo dTiCam debe ser numérico",
       })
       .positive({ message: "El campo dTiCam debe ser un número positivo" })
-      .refine((value) => value.toString().replace(".", "").length <= 5, {
+      .refine((value) => value.toString().replace(".", "").length <= 9, {
         message:
-          "El campo dTiCam debe tener entre 1 y 5 dígitos, incluyendo decimales",
+          "El campo dTiCam debe tener entre 1 y 9 dígitos, incluyendo decimales",
       })
       .optional(),
 
@@ -3322,10 +3322,10 @@ export const documentoSchema = z
         data.iTImp === 5)
     ) {
       const sumatoriaTotOpe =
-        (data.dSub10 || 0) +
-        (data.dSub5 || 0) +
-        (data.dSubExe || 0) +
-        (data.dSubExo || 0);
+        ((data.dSub10 || 0)*100 +
+        (data.dSub5 || 0)*100 +
+        (data.dSubExe || 0)*100 +
+        (data.dSubExo || 0)*100)/100 ;
       if (data.dTotOpe !== sumatoriaTotOpe) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

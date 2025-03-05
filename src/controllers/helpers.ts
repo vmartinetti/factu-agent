@@ -29,6 +29,8 @@ export const getgOpeCom = (body: any) => {
       dDesTImp: getDescription(body.iTImp, dDesTImpList, "dDesTImpList"),
       cMoneOpe: body.cMoneOpe,
       dDesMoneOpe: getDescription(body.cMoneOpe, dDesMoneOpeList, "dDesMoneOpeList"),
+      dCondTiCam: body.cMoneOpe === "PYG" ? "null" : 1,
+      dTiCam: body.cMoneOpe === "PYG" ? "null" : body.dTiCam,
     };
     return gOpeCom;
   }
@@ -97,6 +99,7 @@ export const getgPaConEIni = (body: any) => {
       dDMoneTiPag: getDescription(body.cMoneTiPag, dDesMoneOpeList, "dDesMoneOpeList"),
       gPagTarCD: getgPagTarCD(body),
       gPagCheq: getgPagCheq(body),
+      dTiCamTiPag: body.cMoneTiPag === "PYG" ? "null" : body.dTiCam,
     };
   }
   return "null";
@@ -151,6 +154,7 @@ export const getgTotSub = (body: any) => {
       dBaseGrav5: body.dBaseGrav5, //nuevo
       dBaseGrav10: body.dBaseGrav10, //nuevo
       dTBasGraIVA: body.dTBasGraIVA, //nuevo
+      dTotalGs: body.cMoneOpe === "PYG" ? "null" : Math.round(Number(body.dTotOpe * body.dTiCam)),
     };
   }
   return "null";
