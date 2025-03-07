@@ -37,6 +37,7 @@ export class Invoice extends Model {
   declare sifenMensaje: string;
   declare customerEmail: string;
   declare emailStatus: string;
+  declare exchangeRate: number;
 }
 
 Invoice.init({
@@ -77,7 +78,8 @@ Invoice.init({
   zipId: DataTypes.NUMBER,
   sifenMensaje: DataTypes.STRING,
   customerEmail: DataTypes.STRING,
-  emailStatus: DataTypes.STRING
+  emailStatus: DataTypes.STRING,
+  exchangeRate: DataTypes.DECIMAL
 }, {
   sequelize,
   tableName: 'invoice',
