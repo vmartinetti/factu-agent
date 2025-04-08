@@ -311,8 +311,11 @@ export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: stri
     const sig = new SignedXml();
     sig.signatureAlgorithm = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
     sig.canonicalizationAlgorithm = "http://www.w3.org/2001/10/xml-exc-c14n#";
-
-    sig.addReference("//*[local-name(.)='DE']", ["http://www.w3.org/2000/09/xmldsig#enveloped-signature", "http://www.w3.org/2001/10/xml-exc-c14n#"], "http://www.w3.org/2001/04/xmlenc#sha256");
+    if (!IdcSC && !CSC) {
+      sig.addReference("//*[local-name(.)='rEve']", ["http://www.w3.org/2000/09/xmldsig#enveloped-signature", "http://www.w3.org/2001/10/xml-exc-c14n#"], "http://www.w3.org/2001/04/xmlenc#sha256");
+    }else {
+      sig.addReference("//*[local-name(.)='DE']", ["http://www.w3.org/2000/09/xmldsig#enveloped-signature", "http://www.w3.org/2001/10/xml-exc-c14n#"], "http://www.w3.org/2001/04/xmlenc#sha256");
+    }
 
     sig.signingKey = Buffer.from(certificadoPem);
     sig.keyInfoProvider = {
@@ -321,11 +324,22 @@ export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: stri
       getKeyInfo: () => keyProvider.getKeyInfo(certificadoPubPath),
     };
 
-    sig.computeSignature(xml, {
-      location: { reference: "//*[local-name(.)='DE']", action: "after" },
-    });
+    if (!IdcSC && !CSC) {
+      sig.computeSignature(xml, {
+        location: { reference: "//*[local-name(.)='rEve']", action: "after" },
+      });
+    }else {
+      sig.computeSignature(xml, {
+        location: { reference: "//*[local-name(.)='DE']", action: "after" },
+      });
+    }
 
     const xmlSigned = sig.getSignedXml();
+
+    if (!IdcSC && !CSC) {
+      // Para firmar eventos
+      return xmlSigned;
+    }
 
     const digestValue = await getDigestValue(xmlSigned);
     const QRData = await getQRData(xml, digestValue);

@@ -309,3 +309,23 @@ export async function getFirstRepairedInvoice() {
     return null;
   }
 }
+
+export async function getFirstCancelPendingInvoice():Promise<Invoice | null> {
+  try {
+    const invoice = await Invoice.findOne({
+      where: {
+        CDC: '01800189663001003000820212025013011738236034'
+      },
+      order: [["createdAt", "ASC"]],
+      logging: false,
+    });
+    if (!invoice) {
+      console.log("No pending caclncel invoices found");
+      return null;
+    }
+    return invoice;
+  } catch (error) {
+    console.log("Error getting first cancel pending invoice", error);
+    return null;
+  }
+}

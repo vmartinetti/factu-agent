@@ -1,4 +1,4 @@
-import { getAllInvoices, getAllNoZippedInvoicesByCompany, getFirstNoZippedInvoice, getFirstPendingEmailInvoice, getFirstPendingInvoiceData, getFirstRepairedInvoice, getInvoiceJSON, updateInvoice } from "./controllers/invoiceController";
+import { getAllInvoices, getAllNoZippedInvoicesByCompany, getFirstNoZippedInvoice, getFirstPendingEmailInvoice, getFirstPendingInvoiceData, getFirstRepairedInvoice, getInvoiceJSON, updateInvoice, getFirstCancelPendingInvoice } from "./controllers/invoiceController";
 import { sequelize } from "./database";
 import { buildItemsDet, getdDenSuc, getDescription, getgCamCond, getgCamDEAsoc, getgCamFE, getgCamNCDE, getgDatRec, getgOpeCom, getgTotSub } from "./controllers/helpers";
 import { dDesTiDEList, dDesTipEmiList, getDefaultHTML, getDefaultText } from "./constants";
@@ -26,6 +26,7 @@ sequelize
   .authenticate()
   .then(() => {
     console.log("Connection has been established successfully.");
+    processCanceledInvoices();
     processRepairedInvoice();
     processInvoice();
     scheduleJobs();
@@ -36,42 +37,54 @@ sequelize
 
 // function that creates CRON jobs
 function scheduleJobs() {
-  if (process.env.NODE_ENV === 'production') {
-    schedule("0 * * * *", () => { // every hour at minute 0
+  if (process.env.NODE_ENV === "production") {
+    schedule("0 * * * *", () => {
+      // every hour at minute 0
       processInvoice();
     });
-    schedule("20 * * * *", () => { // every hour at minute 20
+    schedule("*/90 * * * *", () => {
+      // every 1:30 minutes
       createInvoicesZip();
     });
-    schedule("0 * * * *", () => { // every hour at minute 0
+    schedule("0/95 * * * *", () => {
+      // every hour at minute 0
       sendZipToSIFEN();
     });
-    schedule("0 * * * *", () => { // every hour at minute 0
+    schedule("0/87 * * * *", () => {
+      // every hour at minute 0
       checkZipStatus();
     });
-    schedule("*/2 * * * *", () => { // every 2 minutes
+    schedule("*/2 * * * *", () => {
+      // every 2 minutes
       sendInvoicesByEmail();
     });
-    schedule("*/45 * * * *", () => { // every 45 minutes
+    schedule("*/45 * * * *", () => {
+      // every 45 minutes
       processRepairedInvoice();
     });
   } else {
-    schedule("*/60 * * * * *", () => { // every 60 seconds
+    schedule("*/60 * * * * *", () => {
+      // every 60 seconds
       processInvoice();
     });
-    schedule("*/60 * * * * *", () => { // every 60 seconds
+    schedule("*/60 * * * * *", () => {
+      // every 60 seconds
       createInvoicesZip();
     });
-    schedule("*/60 * * * * *", () => { // every 60 seconds
+    schedule("*/60 * * * * *", () => {
+      // every 60 seconds
       sendZipToSIFEN();
     });
-    schedule("*/60 * * * * *", () => { // every 60 seconds
+    schedule("*/60 * * * * *", () => {
+      // every 60 seconds
       checkZipStatus();
     });
-    schedule("*/33 * * * * *", () => { // every 33 seconds
+    schedule("*/33 * * * * *", () => {
+      // every 33 seconds
       sendInvoicesByEmail();
     });
-    schedule("*/43 * * * * *", () => { // every 43 seconds
+    schedule("*/43 * * * * *", () => {
+      // every 43 seconds
       processRepairedInvoice();
     });
   }
@@ -118,8 +131,12 @@ async function sendInvoicesByEmail() {
       },
     ],
   });
-  fs.unlinkSync(xmlFileName);
-  fs.unlinkSync(pdfFileName);
+  try{
+    fs.unlinkSync(xmlFileName);
+    fs.unlinkSync(pdfFileName);
+  } catch (error) {
+    console.log("Seems like the files don't exist yet or anymore");
+  }
   if (error) {
     console.log("Error sending email", error);
     invoice.update({ emailStatus: "ERROR" });
@@ -144,7 +161,7 @@ async function processInvoice() {
     console.log("Error generating invoice JSON");
     return;
   }
-  
+
   // test with zod
   const isValid = await validateJSON(invoiceJSON);
   if (!isValid.success) {
@@ -185,12 +202,12 @@ async function processInvoice() {
       dSisFact: 1,
       gOpeDE: {
         iTipEmi: invoiceJSON.iTipEmi,
-        dDesTipEmi: getDescription(invoiceJSON.iTipEmi, dDesTipEmiList, 'dDesTipEmiList'),
+        dDesTipEmi: getDescription(invoiceJSON.iTipEmi, dDesTipEmiList, "dDesTipEmiList"),
         dCodSeg: invoiceJSON.dCodSeg,
       },
       gTimb: {
         iTiDE: invoiceJSON.iTiDE,
-        dDesTiDE: getDescription(invoiceJSON.iTiDE, dDesTiDEList, 'dDesTiDEList'),
+        dDesTiDE: getDescription(invoiceJSON.iTiDE, dDesTiDEList, "dDesTiDEList"),
         dNumTim: invoiceJSON.dNumTim,
         dEst: invoiceJSON.dEst,
         dPunExp: invoiceJSON.dPunExp,
@@ -208,11 +225,11 @@ async function processInvoice() {
           dDirEmi: invoiceJSON.dDirEmi,
           dNumCas: invoiceJSON.dNumCas,
           cDepEmi: invoiceJSON.cDepEmi,
-          dDesDepEmi: getDescription(invoiceJSON.cDepEmi, departamentosList, 'departamentosList'),
+          dDesDepEmi: getDescription(invoiceJSON.cDepEmi, departamentosList, "departamentosList"),
           cDisEmi: invoiceJSON.cDisEmi,
-          dDesDisEmi: getDescription(invoiceJSON.cDisEmi, distritosList, 'distritosList'),
+          dDesDisEmi: getDescription(invoiceJSON.cDisEmi, distritosList, "distritosList"),
           cCiuEmi: invoiceJSON.cCiuEmi,
-          dDesCiuEmi: getDescription(invoiceJSON.cCiuEmi, ciudadesList, 'ciudadesList'),
+          dDesCiuEmi: getDescription(invoiceJSON.cCiuEmi, ciudadesList, "ciudadesList"),
           dTelEmi: invoiceJSON.dTelEmi,
           dEmailE: invoiceJSON.dEmailE,
           dDenSuc: getdDenSuc(invoiceJSON),
@@ -353,7 +370,7 @@ async function sendZipToSIFEN() {
     // console.log(base64Zip);
     const response = await sendZip(zip.id, zip.emisorRuc, base64Zip);
     if (!response.success) {
-      try{
+      try {
         await zip.update({ status: "ERROR_SENDING" });
       } catch (error) {
         return console.error("Error updating zip status", error);
@@ -384,11 +401,11 @@ async function sendZipToSIFEN() {
     } catch (error) {
       console.error("Error parsing response XML", error);
     } finally {
-      try{
+      try {
         // delete zip file and xml file
         fs.unlinkSync(`${zip.id}.zip`);
         fs.unlinkSync(`${zip.id}.xml`);
-      }catch(error){
+      } catch (error) {
         console.log("Seems like the files don't exist yet or anymore");
       }
     }
@@ -455,4 +472,67 @@ async function processRepairedInvoice() {
   }
   console.log("Repaired invoice updated!");
   return processRepairedInvoice();
+}
+
+async function processCanceledInvoices() {
+  const invoice = await getFirstCancelPendingInvoice();
+  if (!invoice) {
+    console.log("No pending canceled invoices found");
+    return;
+  }
+  const company = await getCompany(invoice.companyId);
+  if (!company) {
+    console.error("Error getting company");
+    return;
+  }
+  const cancelEvent = {
+    rEnviEventoDe: {
+      $: {
+        xmlns: "http://ekuatia.set.gov.py/sifen/xsd",
+        "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance"
+      },
+      dId: new Date().getTime().toString().slice(0, -4),
+      dEvReg: {
+        gGroupGesEve: {
+          $: {
+            "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+            "xsi:schemaLocation": "http://ekuatia.set.gov.py/sifen/xsd siRecepEvento_v150.xsd"
+          },
+          rGesEve: {
+            $: {
+              "xsi:schemaLocation": "http://ekuatia.set.gov.py/sifen/xsd siRecepEvento_v150.xsd"
+            },
+            rEve:{
+              $: {
+                Id:"4"
+              },
+              dFecFirma: new Date().toISOString().slice(0, -5),
+              dVerFor: 150,
+              gGroupTiEvt: {
+                rGeVeCan: {
+                  Id: invoice.CDC,
+                  mOtEve: "Error en datos del receptor",
+                },
+              },
+            }
+          },
+        },
+      },
+    },
+  };
+  console.log(cancelEvent);
+  const cancelXML = getXMLFromDocumento(cancelEvent);
+  if (!cancelXML) {
+    console.log("Error generating cancel XML");
+    return;
+  }
+  const rucWithoutDv = company.ruc.split("-")[0] as string;
+  const cancelXMLSigned = await signXML(cancelXML, rucWithoutDv, invoice.CDC, '', ''); 
+  // write cancelXML to file
+  if (!cancelXMLSigned) {
+    console.log("Error signing cancel XML");
+    return;
+  }
+  const xmlFileName = `cancel_${invoice.CDC}.xml`;
+  fs.writeFileSync(xmlFileName, cancelXMLSigned);
 }

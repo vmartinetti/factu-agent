@@ -304,6 +304,7 @@ const documentoSchemaItems = z.object({
     })
     .refine(
       (value) => {
+        console.log('value', value)
         const [integerPart, decimalPart] = value.toString().split(".");
         const isIntegerValid =
         integerPart !== undefined && integerPart.length >= 1 && integerPart.length <= 15;
