@@ -520,7 +520,6 @@ async function processCanceledInvoices() {
       },
     },
   };
-  console.log(cancelEvent);
   const cancelXML = getXMLFromDocumento(cancelEvent);
   if (!cancelXML) {
     console.log("Error generating cancel XML");
