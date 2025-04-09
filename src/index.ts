@@ -575,7 +575,7 @@ async function updateExchangeRate() {
     return console.log("Exchange rate updated:", result.data);
   } catch (error) {
     if(axios.isAxiosError(error)){
-      console.error("Error updating exchange rate:", error.response?.data);
+      return console.error("Error updating exchange rate:", error.response?.data);
     }
     return console.error("Unknown updating exchange rate");
   }
