@@ -14,8 +14,10 @@ import xml2js from "xml2js";
 import { Invoice } from "./models/invoice";
 import { schedule } from "node-cron";
 import { Resend } from "resend";
-import { RESEND_API_KEY } from "./config";
+import { RESEND_API_KEY, API_KEY, API_URL } from "./config";
 import { Kude } from "./models/kude";
+import axios from "axios";
+import { getLatestDollarExchangeRate } from "./controllers/exchangeRateController";
 
 const parser = new xml2js.Parser({ explicitArray: false });
 
@@ -62,6 +64,10 @@ function scheduleJobs() {
       // every 45 minutes
       processRepairedInvoice();
     });
+    schedule("0 * * * *", () => {
+      // every hour at minute 0
+      updateExchangeRate();
+    });
   } else {
     schedule("*/60 * * * * *", () => {
       // every 60 seconds
@@ -87,6 +93,10 @@ function scheduleJobs() {
       // every 43 seconds
       processRepairedInvoice();
     });
+    schedule("*/39 * * * * *", () => {
+      // every 39 seconds
+      updateExchangeRate();
+    });
   }
 }
 
@@ -110,7 +120,7 @@ async function sendInvoicesByEmail() {
   const pdfFileName = `${rootFileName}.pdf`;
   fs.writeFileSync(pdfFileName, pdfBuffer);
   if (!invoice.customerEmail) {
-    console.log("Error sending email");
+    console.error("Error sending email");
     invoice.update({ emailStatus: "ERROR_NO_EMAIL" });
   }
 
@@ -534,4 +544,39 @@ async function processCanceledInvoices() {
   }
   const xmlFileName = `cancel_${invoice.CDC}.xml`;
   fs.writeFileSync(xmlFileName, cancelXMLSigned);
+}
+
+async function updateExchangeRate() {
+  const exchangeRateResult = await getLatestDollarExchangeRate();
+  if (!exchangeRateResult || !exchangeRateResult.success) {
+    console.error("Error getting exchange rate");
+    return;
+  }
+  const exchangeRate = exchangeRateResult.data;
+  console.log('to be sent for update', exchangeRate)
+  if (!exchangeRate) {
+    console.error("Error getting exchange rate");
+    return;
+  }
+  try{
+    const result = await axios.post(
+      `${API_URL}/exchange-rate`,
+      {
+      date: exchangeRate.date,
+      salesRate: exchangeRate.salesRate,
+      },
+      {
+      headers: {
+        "x-api-key": API_KEY,
+      },
+      }
+    );
+    
+    return console.log("Exchange rate updated:", result.data);
+  } catch (error) {
+    if(axios.isAxiosError(error)){
+      console.error("Error updating exchange rate:", error.response?.data);
+    }
+    return console.error("Unknown updating exchange rate");
+  }
 }

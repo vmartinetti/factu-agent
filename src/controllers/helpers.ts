@@ -291,3 +291,17 @@ export async function getHttpAgent(emisorRuc: string) {
   });
   return httpsAgent;
 }
+
+export function parseEuropeanNumber(input: string): number | null {
+  if (typeof input !== 'string') return null;
+
+  // Remove non-breaking spaces and trim
+  const normalized = input.trim().replace(/\s/g, '');
+
+  // Replace thousands separator and decimal comma
+  const standard = normalized.replace(/\./g, '').replace(',', '.');
+
+  const result = Number(standard);
+
+  return isNaN(result) ? null : result;
+}
