@@ -54,16 +54,20 @@ function scheduleJobs() {
       checkZipStatus();
     });
     schedule("* * * * *", () => {
-      // every 2 minutes
+      // every minutes
       sendInvoicesByEmail();
     });
     schedule("* * * * *", () => {
-      // every 45 minutes
+      // every minute
       processRepairedInvoice();
     });
     schedule("0 * * * *", () => {
       // every hour at minute 0
       updateExchangeRate();
+    });
+    schedule("*/45 * * * * *", () => {
+      // every hour at minute 0
+      processCanceledInvoices();
     });
   } else {
     schedule("*/60 * * * * *", () => {
@@ -93,6 +97,10 @@ function scheduleJobs() {
     schedule("*/39 * * * * *", () => {
       // every 39 seconds
       updateExchangeRate();
+    });
+    schedule("*/30 * * * * *", () => {
+      // every 30 seconds
+      processCanceledInvoices();
     });
   }
 }
