@@ -4,6 +4,7 @@ import { NODE_ENV } from "../config";
 import { InvoiceItem } from "../models/invoiceItem";
 import moment from "moment";
 import { Op } from "sequelize";
+import { Cancelation } from "../models/cancellation";
 
 export async function getAllInvoices(options: any) {
   try {
@@ -312,15 +313,28 @@ export async function getFirstRepairedInvoice() {
 
 export async function getFirstCancelPendingInvoice():Promise<Invoice | null> {
   try {
-    const invoice = await Invoice.findOne({
+    // 
+    const cancellationPending = await Cancelation.findOne({
       where: {
-        CDC: '01800189663001003000820212025013011738236034'
+        sifenStatus: "PENDIENTE",
       },
       order: [["createdAt", "ASC"]],
       logging: false,
     });
+    if (!cancellationPending) {
+      return null;
+    }
+    const CDC = cancellationPending.CDC;
+    if (!CDC) {
+      return null;
+    }
+    const invoice = await Invoice.findOne({
+      where: {
+        CDC,
+      },
+      logging: false,
+    });
     if (!invoice) {
-      console.log("No pending caclncel invoices found");
       return null;
     }
     return invoice;

@@ -549,6 +549,8 @@ async function processCanceledInvoices() {
   }
   const xmlFileName = `cancel_${invoice.CDC}.xml`;
   fs.writeFileSync(xmlFileName, cancelXMLSigned);
+  // send cancel XML to SIFEN
+  console.log('Send cancelation TO BE IMPLEMENTED')
 }
 
 async function updateExchangeRate() {
