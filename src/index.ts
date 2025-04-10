@@ -44,23 +44,20 @@ function scheduleJobs() {
       // every hour at minute 0
       processInvoice();
     });
-    schedule("*/90 * * * *", () => {
-      // every 1:30 minutes
+    schedule("* * * * *", () => {
       createInvoicesZip();
     });
-    schedule("0/95 * * * *", () => {
-      // every hour at minute 0
+    schedule("* * * * *", () => {
       sendZipToSIFEN();
     });
-    schedule("0/87 * * * *", () => {
-      // every hour at minute 0
+    schedule("* * * * *", () => {
       checkZipStatus();
     });
-    schedule("*/2 * * * *", () => {
+    schedule("* * * * *", () => {
       // every 2 minutes
       sendInvoicesByEmail();
     });
-    schedule("*/45 * * * *", () => {
+    schedule("* * * * *", () => {
       // every 45 minutes
       processRepairedInvoice();
     });
