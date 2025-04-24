@@ -18,6 +18,7 @@ import { RESEND_API_KEY, API_KEY, API_URL } from "./config";
 import { Kude } from "./models/kude";
 import axios from "axios";
 import { getLatestDollarExchangeRate } from "./controllers/exchangeRateController";
+import { getCreditNoteJSON, getFirstPendingCreditNoteData, updateCreditNote } from "./controllers/creditNoteController";
 
 const parser = new xml2js.Parser({ explicitArray: false });
 
@@ -32,6 +33,7 @@ sequelize
     processRepairedInvoice();
     processInvoice();
     scheduleJobs();
+    processCreditNote();
   })
   .catch((error) => {
     console.error("Unable to connect to the database:", error);
@@ -586,4 +588,141 @@ async function updateExchangeRate() {
     }
     return console.error("Unknown updating exchange rate");
   }
+}
+
+async function processCreditNote() {
+  const { creditNote, company, creditNoteItems } = await getFirstPendingCreditNoteData();
+  if (!creditNote) {
+    console.log("No pending xml/sign creditNotes found");
+    return;
+  }
+  console.log("Found creditNote", creditNote.id);
+  const creditNoteJSON = await getCreditNoteJSON(creditNote, company, creditNoteItems);
+  if (!creditNoteJSON) {
+    console.log("Error generating creditNote JSON");
+    return;
+  }
+
+  // test with zod
+  const isValid = await validateJSON(creditNoteJSON);
+  if (!isValid.success) {
+    console.log("Error validating JSON on creditNoteId:", creditNote.id, isValid.errors);
+    const creditNoteUpdatedFields = {
+      sifenStatus: "ERROR_JSON",
+    };
+    const updateResult = await updateCreditNote(creditNoteUpdatedFields, creditNote.id);
+    if (!updateResult) {
+      console.log("Error updating creditNote at processcreditNote");
+    }
+    return;
+  }
+
+  console.log("JSON isValid!");
+
+  const cdcSinDv = creditNote.CDC.slice(0, -1);
+
+  if (!cdcSinDv) {
+    // TODO: Marcar en base de datos como error ( y en todos los lugares donde se maneje el error)
+    return console.log("Fallo en la formación del CDC sin DV");
+  }
+  // TODO: check if we need to calculate the DV from the CDC
+  // const dv = calcularDV(cdcSinDv);
+  const dv = Number(creditNote.CDC.slice(-1));
+  let cdc = `${cdcSinDv}${dv}`;
+
+  const documentoConNulos = {
+    DE: {
+      $: {
+        Id: cdc,
+      },
+      dDVId: dv,
+      dFecFirma: creditNoteJSON.dFecFirma,
+      dSisFact: 1,
+      gOpeDE: {
+        iTipEmi: creditNoteJSON.iTipEmi,
+        dDesTipEmi: getDescription(creditNoteJSON.iTipEmi, dDesTipEmiList, "dDesTipEmiList"),
+        dCodSeg: creditNoteJSON.dCodSeg,
+      },
+      gTimb: {
+        iTiDE: creditNoteJSON.iTiDE,
+        dDesTiDE: getDescription(creditNoteJSON.iTiDE, dDesTiDEList, "dDesTiDEList"),
+        dNumTim: creditNoteJSON.dNumTim,
+        dEst: creditNoteJSON.dEst,
+        dPunExp: creditNoteJSON.dPunExp,
+        dNumDoc: creditNoteJSON.dNumDoc,
+        dFeIniT: creditNoteJSON.dFeIniT,
+      },
+      gDatGralOpe: {
+        dFeEmiDE: creditNoteJSON.dFeEmiDE,
+        gOpeCom: getgOpeCom(creditNoteJSON),
+        gEmis: {
+          dRucEm: creditNoteJSON.dRucEm,
+          dDVEmi: creditNoteJSON.dDVEmi,
+          iTipCont: creditNoteJSON.iTipCont,
+          dNomEmi: creditNoteJSON.dNomEmi,
+          dDirEmi: creditNoteJSON.dDirEmi,
+          dNumCas: creditNoteJSON.dNumCas,
+          cDepEmi: creditNoteJSON.cDepEmi,
+          dDesDepEmi: getDescription(creditNoteJSON.cDepEmi, departamentosList, "departamentosList"),
+          cDisEmi: creditNoteJSON.cDisEmi,
+          dDesDisEmi: getDescription(creditNoteJSON.cDisEmi, distritosList, "distritosList"),
+          cCiuEmi: creditNoteJSON.cCiuEmi,
+          dDesCiuEmi: getDescription(creditNoteJSON.cCiuEmi, ciudadesList, "ciudadesList"),
+          dTelEmi: creditNoteJSON.dTelEmi,
+          dEmailE: creditNoteJSON.dEmailE,
+          dDenSuc: getdDenSuc(creditNoteJSON),
+          gActEco: {
+            cActEco: creditNoteJSON.cActEco,
+            dDesActEco: creditNoteJSON.dDesActEco,
+          },
+        },
+        gDatRec: getgDatRec(creditNoteJSON),
+      },
+      gDtipDE: {
+        gCamFE: getgCamFE(creditNoteJSON),
+        gCamNCDE: getgCamNCDE(creditNoteJSON),
+        // gCamNRE: getgCamNRE(),
+        gCamCond: getgCamCond(creditNoteJSON),
+        // gTransp: getgTransp(),
+        gCamItem: buildItemsDet(creditNoteJSON.itemsDet, creditNoteJSON),
+      },
+      gTotSub: getgTotSub(creditNoteJSON),
+      gCamDEAsoc: getgCamDEAsoc(creditNoteJSON),
+    },
+  };
+
+  const documento = eliminarValoresNulos(documentoConNulos);
+  const xml = getXMLFromDocumento(documento);
+  if (!xml) {
+    return console.log("Error generating XML from Documento");
+  }
+
+  const securityCode = creditNote.securityCode;
+  const xmlPrefirma = await getFullXML(xml, cdcSinDv, dv, securityCode);
+  if (!xmlPrefirma) {
+    return console.log("Error generating XML Prefirma");
+  }
+  const xmlBuffer = Buffer.from(xmlPrefirma).toString("utf8");
+  const { dRucEm, IdcSC, CSC } = creditNoteJSON;
+  const xmlSigned = await signXML(xmlBuffer, dRucEm, cdc, IdcSC, CSC);
+  let creditNoteUpdatedFields: { sifenStatus: string; xml?: string };
+  if (!xmlSigned) {
+    creditNoteUpdatedFields = {
+      sifenStatus: "ERROR_FIRMA",
+    };
+    console.log("Error signing XML");
+  } else {
+    creditNoteUpdatedFields = {
+      xml: xmlSigned,
+      sifenStatus: "PENDIENTE",
+    };
+  }
+  // clipboard.writeSync(xmlSigned);
+  // save xmlSigned and CDC to database
+  const updateResult = await updateCreditNote(creditNoteUpdatedFields, creditNote.id);
+  if (!updateResult) {
+    console.log("Error updating creditNote at processcreditNote");
+    return;
+  }
+  return await processCreditNote();
 }
