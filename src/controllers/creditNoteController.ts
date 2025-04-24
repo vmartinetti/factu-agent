@@ -197,3 +197,58 @@ export async function updateCreditNote(updatedFields: any, creditNoteId: string)
     return null;
   }
 }
+
+export async function getFirstNoZippedCreditNote() {
+  try {
+    const creditNote = await CreditNote.findOne({
+      where: {
+        annulled: false,
+        sifenStatus: "PENDIENTE",
+        CDC: { [Op.ne]: null },
+        xml: { [Op.ne]: null },
+        zipId: null,
+      },
+      order: [["createdAt", "ASC"]],
+      logging: false,
+    });
+    if (!creditNote) {
+      console.log("No pending zip creditNotes found");
+      return null;
+    }
+    return creditNote;
+  } catch (error) {
+    console.log("Error getting first no zipped creditNote", error);
+    return null;
+  }
+}
+
+export async function getAllNoZippedCreditNotesByCompany(companyId: string) {
+  try {
+    const creditNotes = await CreditNote.findAll({
+      where: {
+        companyId,
+        annulled: false,
+        sifenStatus: "PENDIENTE",
+        CDC: { [Op.ne]: null },
+        zipId: null,
+      },
+      limit: 50,
+      order: [["createdAt", "ASC"]],
+      logging: false,
+    });
+    return creditNotes;
+  } catch (error) {
+    console.log("Error getting all no zipped creditNotes by company", error);
+    return [];
+  }
+}
+
+export async function getAllCreditNotes(options: any) {
+  try {
+    const creditNotes = await CreditNote.findAll(options);
+    return creditNotes;
+  } catch (error) {
+    console.log("Error getting all creditNotes", error);
+    return [];
+  }
+}
