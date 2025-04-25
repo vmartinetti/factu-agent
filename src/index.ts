@@ -34,6 +34,7 @@ sequelize
     processRepairedInvoice();
     processInvoice();
     processCreditNote();
+    checkZipStatus();
     scheduleJobs();
   })
   .catch((error) => {
@@ -454,7 +455,7 @@ async function sendZipToSIFEN() {
 async function checkZipStatus() {
   const zip = await getFirstSentZip();
   if (!zip) return console.log("No zip with status ENVIADO found");
-  const { id: zipId, loteNro, emisorRuc } = zip;
+  const { id: zipId, loteNro, emisorRuc, documentType } = zip;
   // get lote status
   const resultLoteStatus = await getLoteStatus(loteNro, zipId, emisorRuc);
   if (!resultLoteStatus.success) {
@@ -472,13 +473,18 @@ async function checkZipStatus() {
         let { id, dEstRes: res, gResProc: error } = result;
         if (res === "Aprobado con observación") res = "APROBADO";
         const resultado = res.toUpperCase();
-        await Invoice.update({ sifenStatus: resultado, sifenMensaje: `${error?.dCodRes} - ${error?.dMsgRes}` }, { where: { CDC: id }, transaction: t });
+        if (documentType === 1) {
+          await Invoice.update({ sifenStatus: resultado, sifenMensaje: `${error?.dCodRes} - ${error?.dMsgRes}` }, { where: { CDC: id }, transaction: t });
+        }
+        if (documentType === 5) {
+          await CreditNote.update({ sifenStatus: resultado, sifenMensaje: `${error?.dCodRes} - ${error?.dMsgRes}` }, { where: { CDC: id }, transaction: t });
+        }
       }
       await zip.update({ status: "PROCESADO", consultaXML: xml }, { transaction: t });
       await t.commit();
     } catch (error) {
       await t.rollback();
-      console.log("Error updating invoices with sifen status", error);
+      console.log("Error updating documents with sifen status", error);
     }
   }
 }

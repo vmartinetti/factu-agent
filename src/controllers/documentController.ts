@@ -363,7 +363,7 @@ export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: stri
 
     let concatenated = `nVersion=${nVersion}&Id=${cdc}&dFeEmiDE=${dFeEmiDEHex}&${docType}=${docNumber}&dTotGralOpe=${dTotGralOpe}&dTotIVA=${dTotIVA}&cItems=${cItems}&DigestValue=${DigestValueHex}&IdCSC=${IdcSC}${CSC}`;
     const hashHex = await getSHA256Hash(concatenated);
-    const baseUrl = NODE_ENV === "production" ? "https://ekuatia.set.gov.py/consultas/qr?" : "https://ekuatia.set.gov.py/consultas/qr?";
+    const baseUrl = NODE_ENV === "production" ? "https://ekuatia.set.gov.py/consultas/qr?" : "https://ekuatia.set.gov.py/consultas-test/qr?";
     let url = `${baseUrl}nVersion=${nVersion}&Id=${cdc}&dFeEmiDE=${dFeEmiDEHex}&${docType}=${docNumber}&dTotGralOpe=${dTotGralOpe}&dTotIVA=${dTotIVA}&cItems=${cItems}&DigestValue=${DigestValueHex}&IdCSC=${IdcSC}&cHashQR=${hashHex}`;
     const signedXmlWithQR = writeQRUrl(xmlSigned, url);
     return signedXmlWithQR;
