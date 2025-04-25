@@ -252,3 +252,19 @@ export async function getAllCreditNotes(options: any) {
     return [];
   }
 }
+
+export async function getFirstPendingEmailCreditNote() {
+  try {
+    const creditNote = await CreditNote.findOne({
+      where: {
+        annulled: false,
+        emailStatus: "PENDIENTE",
+      },
+      logging: false,
+    });
+    return creditNote;
+  } catch (error) {
+    console.log("Error getting first pending email credit note", error);
+    return null;
+  }
+}

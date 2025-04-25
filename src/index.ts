@@ -18,7 +18,7 @@ import { RESEND_API_KEY, API_KEY, API_URL } from "./config";
 import { Kude } from "./models/kude";
 import axios from "axios";
 import { getLatestDollarExchangeRate } from "./controllers/exchangeRateController";
-import { getAllCreditNotes, getAllNoZippedCreditNotesByCompany, getCreditNoteJSON, getFirstNoZippedCreditNote, getFirstPendingCreditNoteData, updateCreditNote } from "./controllers/creditNoteController";
+import { getAllCreditNotes, getAllNoZippedCreditNotesByCompany, getCreditNoteJSON, getFirstNoZippedCreditNote, getFirstPendingCreditNoteData, getFirstPendingEmailCreditNote, updateCreditNote } from "./controllers/creditNoteController";
 import { CreditNote } from "./models/creditNote";
 
 const parser = new xml2js.Parser({ explicitArray: false });
@@ -60,6 +60,7 @@ function scheduleJobs() {
     schedule("* * * * *", () => {
       // every minutes
       sendInvoicesByEmail();
+      sendCreditNotesByEmail();
     });
     schedule("* * * * *", () => {
       // every minute
@@ -97,6 +98,7 @@ function scheduleJobs() {
     schedule("*/33 * * * * *", () => {
       // every 33 seconds
       sendInvoicesByEmail();
+      sendCreditNotesByEmail();
     });
     schedule("*/43 * * * * *", () => {
       // every 43 seconds
@@ -803,4 +805,63 @@ async function createCreditNotesZip() {
     await t.rollback();
     console.log("Error zipping creditNotes", error);
   }
+}
+
+async function sendCreditNotesByEmail() {
+  const creditNote = await getFirstPendingEmailCreditNote();
+  if (!creditNote) return console.log("No pending email creditNotes found");
+  const company = await getCompany(creditNote.companyId);
+  if (!company) return console.error("Error getting company");
+  const kude = await Kude.findByPk(creditNote.CDC);
+  if (!kude) {
+    console.error("No Kude found for creditNote");
+    return await creditNote.update({ emailStatus: "ERROR_NO_KUDE" });
+  }
+  // send email with resend
+  // update invoice with emailStatus
+  const rootFileName = `notacredito_${creditNote.salespointSucursal.toString().padStart(3, "0")}-${creditNote.salespointPunto.toString().padStart(3, "0")}-${creditNote.number.toString().padStart(7, "0")}`;
+  const xmlString = `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Header/><soap:Body><rEnviDe xmlns="http://ekuatia.set.gov.py/sifen/xsd"><dId>120697</dId><xDE>${creditNote.xml}</xDE></rEnviDe></soap:Body></soap:Envelope>`;
+  const xmlFileName = `${rootFileName}.xml`;
+  fs.writeFileSync(xmlFileName, xmlString);
+  const pdfBuffer = Buffer.from(kude.base64, "base64");
+  const pdfFileName = `${rootFileName}.pdf`;
+  fs.writeFileSync(pdfFileName, pdfBuffer);
+  if (!creditNote.customerEmail) {
+    console.error("Error sending email");
+    creditNote.update({ emailStatus: "ERROR_NO_EMAIL" });
+  }
+
+  const { error } = await resend.emails.send({
+    from: "Factu <factura.electronica@factu.com.py>",
+    to: creditNote.customerEmail,
+    subject: `Tu nota de crédito electrónica de ${company.nombreFantasia || company.razonSocial}`,
+    text: getDefaultText(creditNote, company),
+    html: getDefaultHTML(creditNote, company),
+    attachments: [
+      {
+        filename: xmlFileName,
+        content: fs.readFileSync(xmlFileName),
+      },
+      {
+        filename: pdfFileName,
+        content: fs.readFileSync(pdfFileName),
+      },
+    ],
+  });
+  try {
+    fs.unlinkSync(xmlFileName);
+    fs.unlinkSync(pdfFileName);
+  } catch (error) {
+    console.log("Seems like the files don't exist yet or anymore");
+  }
+  if (error) {
+    console.log("Error sending email", error);
+    creditNote.update({ emailStatus: "ERROR" });
+  } else {
+    creditNote.update({ emailStatus: "ENVIADO" });
+  }
+  // wait 3 seconds before sending another email
+  setTimeout(() => {
+    return sendCreditNotesByEmail();
+  }, 3000);
 }
