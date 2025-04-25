@@ -292,7 +292,7 @@ export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: stri
     // const certificadoPem = fs.readFileSync(certificadoPemPath, "utf8");
     const paths = await getCertificatePaths(ruc);
     if (!paths) {
-      console.error("Error getting certificate paths");
+      console.error("Error getting certificate paths for RUC:", ruc);
       return null;
     }
     const { certificadoPemPath, certificadoPubPath } = paths;

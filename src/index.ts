@@ -186,6 +186,13 @@ async function processInvoice() {
   const invoiceJSON = await getInvoiceJSON(invoice, company, invoiceItems);
   if (!invoiceJSON) {
     console.log("Error generating invoice JSON");
+    const invoiceUpdatedFields = {
+      sifenStatus: "ERROR_NO_JSON",
+    };
+    const updateResult = await updateInvoice(invoiceUpdatedFields, invoice.id);
+    if (!updateResult) {
+      console.log("Error updating invoice at processInvoice");
+    }
     return;
   }
 
@@ -520,7 +527,7 @@ async function processRepairedInvoice() {
 }
 
 async function processCanceledInvoices() {
-  const invoice = await getFirstCancelPendingInvoice();
+  const {invoice, cancellation} = await getFirstCancelPendingInvoice();
   if (!invoice) {
     console.log("No pending canceled invoices found");
     return;
@@ -574,13 +581,20 @@ async function processCanceledInvoices() {
   const cancelXMLSigned = await signXML(cancelXML, rucWithoutDv, invoice.CDC, "", "");
   // write cancelXML to file
   if (!cancelXMLSigned) {
-    console.log("Error signing cancel XML");
+    console.error("Error signing cancel XML");
+    try {
+      await cancellation.update({ sifenStatus: "ERROR_FIRMA" });
+    } catch (error) {
+      console.error("Error updating cancelation status", error);
+    }
     return;
   }
-  const xmlFileName = `cancel_${invoice.CDC}.xml`;
-  fs.writeFileSync(xmlFileName, cancelXMLSigned);
-  // send cancel XML to SIFEN
   console.log("Send cancelation TO BE IMPLEMENTED");
+  return await cancellation.update({ sifenStatus: "NO_ENVIADO" });
+  // TO BE IMPLEMENTED
+  // const xmlFileName = `cancel_${invoice.CDC}.xml`;
+  // fs.writeFileSync(xmlFileName, cancelXMLSigned);
+  // send cancel XML to SIFEN
 }
 
 async function updateExchangeRate() {

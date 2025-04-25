@@ -124,12 +124,18 @@ export async function getAllPendingInvoicesByCustomer(customerDocId: string) {
 
 export async function getInvoiceJSON(invoice: Invoice, company: Company, invoiceItems: InvoiceItem[]) {
   const dDVEmiString = company.ruc.split("-")[1];
-  if (!dDVEmiString) return null;
+  if (!dDVEmiString) {
+    console.log("Error getting dDVEmiString");
+    return null;
+  }
   const dRucEm = company.ruc.split("-")[0];
   const dRucRec = invoice.customerDocId.split("-")[0];
   const dDVRecString = invoice.customerDocId.split("-")[1];
   const esInnominada = invoice.customerDocId === "44444401-7";
-  if (!dDVRecString) return null;
+  if (!dDVRecString) {
+    console.log("Error getting dDVRecString");
+    return null;
+  }
   const dDVRec = parseInt(dDVRecString);
   const invoiceJSONWithNull = {
     IdcSC: NODE_ENV === "development" ? "0001" : String(company.idCSC).padStart(4, "0"),
@@ -311,7 +317,8 @@ export async function getFirstRepairedInvoice() {
   }
 }
 
-export async function getFirstCancelPendingInvoice():Promise<Invoice | null> {
+// TODO: Move to cancellationController
+export async function getFirstCancelPendingInvoice() {
   try {
     // 
     const cancellationPending = await Cancelation.findOne({
@@ -322,11 +329,11 @@ export async function getFirstCancelPendingInvoice():Promise<Invoice | null> {
       logging: false,
     });
     if (!cancellationPending) {
-      return null;
+      return {invoice: null, cancellation: null};
     }
     const CDC = cancellationPending.CDC;
     if (!CDC) {
-      return null;
+      return {invoice: null, cancellation: null};
     }
     const invoice = await Invoice.findOne({
       where: {
@@ -335,11 +342,11 @@ export async function getFirstCancelPendingInvoice():Promise<Invoice | null> {
       logging: false,
     });
     if (!invoice) {
-      return null;
+      return {invoice: null, cancellation: null};
     }
-    return invoice;
+    return {invoice, cancellation: cancellationPending};
   } catch (error) {
     console.log("Error getting first cancel pending invoice", error);
-    return null;
+    return {invoice: null, cancellation: null};
   }
 }
