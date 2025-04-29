@@ -15,11 +15,6 @@ export function getDefaultHTML(document: Invoice | CreditNote, company: Company)
 <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
   <table style="max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 5px;">
     <tr>
-      <td align="center">
-        <h2 style="color: #007bff;">${documentType} Electrónica de ${company.nombreFantasia || company.razonSocial}</h2>
-      </td>
-    </tr>
-    <tr>
       <td>
         <p>Hola <strong>${document.customerName}</strong>,</p>
         <p>Adjunto encontrarás tu ${documentType} electrónica.</p>

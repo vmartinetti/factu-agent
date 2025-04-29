@@ -134,29 +134,50 @@ async function sendInvoicesByEmail() {
   const rootFileName = `factura_${invoice.salespointSucursal.toString().padStart(3, "0")}-${invoice.salespointPunto.toString().padStart(3, "0")}-${invoice.number.toString().padStart(7, "0")}`;
   const xmlString = `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Header/><soap:Body><rEnviDe xmlns="http://ekuatia.set.gov.py/sifen/xsd"><dId>120697</dId><xDE>${invoice.xml}</xDE></rEnviDe></soap:Body></soap:Envelope>`;
   const xmlFileName = `${rootFileName}.xml`;
-  fs.writeFileSync(xmlFileName, xmlString);
+  try {
+    fs.writeFileSync(xmlFileName, xmlString);
+  } catch (error) {
+    console.error("Error writing XML file", error);
+  }
   const pdfBuffer = Buffer.from(kude.base64, "base64");
   const pdfFileName = `${rootFileName}.pdf`;
-  fs.writeFileSync(pdfFileName, pdfBuffer);
+  try {
+    fs.writeFileSync(pdfFileName, pdfBuffer);
+  } catch (error) {
+    console.error("Error writing PDF file", error);
+  }
   if (!invoice.customerEmail) {
     console.error("Error sending email");
     invoice.update({ emailStatus: "ERROR_NO_EMAIL" });
+  }
+  let pdfFile;
+  try {
+    pdfFile = fs.readFileSync(pdfFileName);
+  } catch (error) {
+    console.error("Error reading PDF file", error);
+  }
+
+  let xmlFile;
+  try {
+    xmlFile = fs.readFileSync(xmlFileName);
+  } catch (error) {
+    console.error("Error reading XML file", error);
   }
 
   const { error } = await resend.emails.send({
     from: "Factu <factura.electronica@factu.com.py>",
     to: invoice.customerEmail,
-    subject: `Tu factura electrónica de ${company.nombreFantasia || company.razonSocial}`,
+    subject: `Factura electrónica de ${company.nombreFantasia || company.razonSocial}`,
     text: getDefaultText(invoice, company),
     html: getDefaultHTML(invoice, company),
     attachments: [
       {
         filename: xmlFileName,
-        content: fs.readFileSync(xmlFileName),
+        content: xmlFile,
       },
       {
         filename: pdfFileName,
-        content: fs.readFileSync(pdfFileName),
+        content: pdfFile,
       },
     ],
   });
@@ -529,7 +550,7 @@ async function processRepairedInvoice() {
 }
 
 async function processCanceledInvoices() {
-  const {invoice, cancellation} = await getFirstCancelPendingInvoice();
+  const { invoice, cancellation } = await getFirstCancelPendingInvoice();
   if (!invoice) {
     console.log("No pending canceled invoices found");
     return;
@@ -831,20 +852,34 @@ async function sendCreditNotesByEmail() {
     creditNote.update({ emailStatus: "ERROR_NO_EMAIL" });
   }
 
+  let pdfFile;
+  try {
+    pdfFile = fs.readFileSync(pdfFileName);
+  } catch (error) {
+    console.error("Error reading PDF file", error);
+  }
+
+  let xmlFile;
+  try {
+    xmlFile = fs.readFileSync(xmlFileName);
+  } catch (error) {
+    console.error("Error reading XML file", error);
+  }
+
   const { error } = await resend.emails.send({
     from: "Factu <factura.electronica@factu.com.py>",
     to: creditNote.customerEmail,
-    subject: `Tu nota de crédito electrónica de ${company.nombreFantasia || company.razonSocial}`,
+    subject: `Nota de crédito electrónica de ${company.nombreFantasia || company.razonSocial}`,
     text: getDefaultText(creditNote, company),
     html: getDefaultHTML(creditNote, company),
     attachments: [
       {
         filename: xmlFileName,
-        content: fs.readFileSync(xmlFileName),
+        content: xmlFile,
       },
       {
         filename: pdfFileName,
-        content: fs.readFileSync(pdfFileName),
+        content: pdfFile,
       },
     ],
   });
