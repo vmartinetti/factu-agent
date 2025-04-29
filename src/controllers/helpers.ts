@@ -165,6 +165,7 @@ export const getgCamDEAsoc = (body: any) => {
     return {
       iTipDocAso: body.iTipDocAso,
       dDesTipDocAso: getDescription(body.iTipDocAso, dDesTipDocAsoList, "dDesTipDocAsoList"),
+      dCdCDERef: body.dCdCDERef
     };
   }
   return "null";

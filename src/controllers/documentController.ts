@@ -243,7 +243,7 @@ async function getQRData(xml: string, digestValue: string) {
 
   const iTiDE = DE["gTimb"][0]["iTiDE"][0];
 
-  if (iTiDE === "1") {
+  if (iTiDE === "1" || iTiDE === "5") {
     dTotGralOpe = DE["gTotSub"][0]["dTotGralOpe"][0];
     dTotIVA = DE["gTotSub"][0]["dTotIVA"][0];
   }
@@ -292,7 +292,7 @@ export async function signXML(xml: string, ruc: string, cdc: string, IdcSC: stri
     // const certificadoPem = fs.readFileSync(certificadoPemPath, "utf8");
     const paths = await getCertificatePaths(ruc);
     if (!paths) {
-      console.error("Error getting certificate paths");
+      console.error("Error getting certificate paths for RUC:", ruc);
       return null;
     }
     const { certificadoPemPath, certificadoPubPath } = paths;

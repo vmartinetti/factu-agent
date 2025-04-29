@@ -1,11 +1,12 @@
 import { Zip } from "../models/zip";
 
-export async function createEmptyZip(emisorRuc: string) {
+export async function createEmptyZip(emisorRuc: string, documentType: number) {
   try {
     const zip = await Zip.create({
       base64: null,
       status: "PENDIENTE",
       emisorRuc: emisorRuc,
+      documentType
     });
     return zip;
   } catch (error) {

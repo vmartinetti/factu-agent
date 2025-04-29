@@ -18,6 +18,8 @@ import { RESEND_API_KEY, API_KEY, API_URL } from "./config";
 import { Kude } from "./models/kude";
 import axios from "axios";
 import { getLatestDollarExchangeRate } from "./controllers/exchangeRateController";
+import { getAllCreditNotes, getAllNoZippedCreditNotesByCompany, getCreditNoteJSON, getFirstNoZippedCreditNote, getFirstPendingCreditNoteData, getFirstPendingEmailCreditNote, updateCreditNote } from "./controllers/creditNoteController";
+import { CreditNote } from "./models/creditNote";
 
 const parser = new xml2js.Parser({ explicitArray: false });
 
@@ -31,6 +33,8 @@ sequelize
     processCanceledInvoices();
     processRepairedInvoice();
     processInvoice();
+    processCreditNote();
+    checkZipStatus();
     scheduleJobs();
   })
   .catch((error) => {
@@ -56,6 +60,7 @@ function scheduleJobs() {
     schedule("* * * * *", () => {
       // every minutes
       sendInvoicesByEmail();
+      sendCreditNotesByEmail();
     });
     schedule("* * * * *", () => {
       // every minute
@@ -68,6 +73,10 @@ function scheduleJobs() {
     schedule("*/45 * * * * *", () => {
       // every hour at minute 0
       processCanceledInvoices();
+    });
+    schedule("0 * * * *", () => {
+      // every hour at minute 0
+      processCreditNote();
     });
   } else {
     schedule("*/60 * * * * *", () => {
@@ -89,6 +98,7 @@ function scheduleJobs() {
     schedule("*/33 * * * * *", () => {
       // every 33 seconds
       sendInvoicesByEmail();
+      sendCreditNotesByEmail();
     });
     schedule("*/43 * * * * *", () => {
       // every 43 seconds
@@ -101,6 +111,10 @@ function scheduleJobs() {
     schedule("*/30 * * * * *", () => {
       // every 30 seconds
       processCanceledInvoices();
+    });
+    schedule("*/30 * * * * *", () => {
+      // every 30 seconds
+      processCreditNote();
     });
   }
 }
@@ -146,7 +160,7 @@ async function sendInvoicesByEmail() {
       },
     ],
   });
-  try{
+  try {
     fs.unlinkSync(xmlFileName);
     fs.unlinkSync(pdfFileName);
   } catch (error) {
@@ -174,6 +188,13 @@ async function processInvoice() {
   const invoiceJSON = await getInvoiceJSON(invoice, company, invoiceItems);
   if (!invoiceJSON) {
     console.log("Error generating invoice JSON");
+    const invoiceUpdatedFields = {
+      sifenStatus: "ERROR_NO_JSON",
+    };
+    const updateResult = await updateInvoice(invoiceUpdatedFields, invoice.id);
+    if (!updateResult) {
+      console.log("Error updating invoice at processInvoice");
+    }
     return;
   }
 
@@ -320,7 +341,7 @@ async function createInvoicesZip() {
 
   console.log(`${invoices.length} Invoices to zip`);
   // create zip record
-  const zip = await createEmptyZip(emisorRuc);
+  const zip = await createEmptyZip(emisorRuc, 1);
   if (!zip) return console.error("Error creating zip");
 
   const zipId = zip.id;
@@ -344,19 +365,27 @@ async function sendZipToSIFEN() {
   const zip = await getFirstPendingZip();
   if (!zip) return console.log("No pending zip found");
   console.log("preparing to send zip id:", zip.id);
-  const invoiceGetAllOptions = { attributes: ["id", "xml", "CDC"], where: { zipId: zip.id } };
-  const invoices = await getAllInvoices(invoiceGetAllOptions);
-  if (!invoices.length) {
+  const documentGetAllOptions = { attributes: ["id", "xml", "CDC"], where: { zipId: zip.id } };
+  let documents: Invoice[] | CreditNote[] = [];
+  if (zip.documentType === 1) {
+    const invoices = await getAllInvoices(documentGetAllOptions);
+    documents = invoices;
+  }
+  if (zip.documentType === 5) {
+    const creditNotes = await getAllCreditNotes(documentGetAllOptions);
+    documents = creditNotes;
+  }
+  if (!documents.length) {
     try {
-      await zip.update({ status: "ZERO_INVOICES" });
+      await zip.update({ status: "ZERO_DOCUMENTS" });
     } catch (error) {
       console.log("Error updating zip status", error);
     }
     return console.log("No zip invoices found");
   }
-  // extract the <rDE> from each invoice using parser
-  const rDEs = invoices.map((inv) => {
-    const rDE = inv.xml;
+  // extract the <rDE> from each document using parser
+  const rDEs = documents.map((doc) => {
+    const rDE = doc.xml;
     return rDE;
   });
 
@@ -409,7 +438,12 @@ async function sendZipToSIFEN() {
         console.log("Zip received by SIFEN!");
         // update zip status to ENVIADO
         await zip.update({ status: "ENVIADO", loteNro: dProtConsLote, envioXML: response.data });
-        await Invoice.update({ sifenStatus: "ENVIADO" }, { where: { zipId: zip.id } });
+        if (zip.documentType === 1) {
+          await Invoice.update({ sifenStatus: "ENVIADO" }, { where: { zipId: zip.id } });
+        }
+        if (zip.documentType === 5) {
+          await CreditNote.update({ sifenStatus: "ENVIADO" }, { where: { zipId: zip.id } });
+        }
       } else {
         console.error("Error getting result from zip sent to SIFEN", dCodRes);
       }
@@ -430,7 +464,7 @@ async function sendZipToSIFEN() {
 async function checkZipStatus() {
   const zip = await getFirstSentZip();
   if (!zip) return console.log("No zip with status ENVIADO found");
-  const { id: zipId, loteNro, emisorRuc } = zip;
+  const { id: zipId, loteNro, emisorRuc, documentType } = zip;
   // get lote status
   const resultLoteStatus = await getLoteStatus(loteNro, zipId, emisorRuc);
   if (!resultLoteStatus.success) {
@@ -448,13 +482,18 @@ async function checkZipStatus() {
         let { id, dEstRes: res, gResProc: error } = result;
         if (res === "Aprobado con observación") res = "APROBADO";
         const resultado = res.toUpperCase();
-        await Invoice.update({ sifenStatus: resultado, sifenMensaje: `${error?.dCodRes} - ${error?.dMsgRes}` }, { where: { CDC: id }, transaction: t });
+        if (documentType === 1) {
+          await Invoice.update({ sifenStatus: resultado, sifenMensaje: `${error?.dCodRes} - ${error?.dMsgRes}` }, { where: { CDC: id }, transaction: t });
+        }
+        if (documentType === 5) {
+          await CreditNote.update({ sifenStatus: resultado, sifenMensaje: `${error?.dCodRes} - ${error?.dMsgRes}` }, { where: { CDC: id }, transaction: t });
+        }
       }
       await zip.update({ status: "PROCESADO", consultaXML: xml }, { transaction: t });
       await t.commit();
     } catch (error) {
       await t.rollback();
-      console.log("Error updating invoices with sifen status", error);
+      console.log("Error updating documents with sifen status", error);
     }
   }
 }
@@ -490,7 +529,7 @@ async function processRepairedInvoice() {
 }
 
 async function processCanceledInvoices() {
-  const invoice = await getFirstCancelPendingInvoice();
+  const {invoice, cancellation} = await getFirstCancelPendingInvoice();
   if (!invoice) {
     console.log("No pending canceled invoices found");
     return;
@@ -504,22 +543,22 @@ async function processCanceledInvoices() {
     rEnviEventoDe: {
       $: {
         xmlns: "http://ekuatia.set.gov.py/sifen/xsd",
-        "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance"
+        "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
       },
       dId: new Date().getTime().toString().slice(0, -4),
       dEvReg: {
         gGroupGesEve: {
           $: {
             "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
-            "xsi:schemaLocation": "http://ekuatia.set.gov.py/sifen/xsd siRecepEvento_v150.xsd"
+            "xsi:schemaLocation": "http://ekuatia.set.gov.py/sifen/xsd siRecepEvento_v150.xsd",
           },
           rGesEve: {
             $: {
-              "xsi:schemaLocation": "http://ekuatia.set.gov.py/sifen/xsd siRecepEvento_v150.xsd"
+              "xsi:schemaLocation": "http://ekuatia.set.gov.py/sifen/xsd siRecepEvento_v150.xsd",
             },
-            rEve:{
+            rEve: {
               $: {
-                Id:"4"
+                Id: "4",
               },
               dFecFirma: new Date().toISOString().slice(0, -5),
               dVerFor: 150,
@@ -529,7 +568,7 @@ async function processCanceledInvoices() {
                   mOtEve: "Error en datos del receptor",
                 },
               },
-            }
+            },
           },
         },
       },
@@ -541,16 +580,23 @@ async function processCanceledInvoices() {
     return;
   }
   const rucWithoutDv = company.ruc.split("-")[0] as string;
-  const cancelXMLSigned = await signXML(cancelXML, rucWithoutDv, invoice.CDC, '', ''); 
+  const cancelXMLSigned = await signXML(cancelXML, rucWithoutDv, invoice.CDC, "", "");
   // write cancelXML to file
   if (!cancelXMLSigned) {
-    console.log("Error signing cancel XML");
+    console.error("Error signing cancel XML");
+    try {
+      await cancellation.update({ sifenStatus: "ERROR_FIRMA" });
+    } catch (error) {
+      console.error("Error updating cancelation status", error);
+    }
     return;
   }
-  const xmlFileName = `cancel_${invoice.CDC}.xml`;
-  fs.writeFileSync(xmlFileName, cancelXMLSigned);
+  console.log("Send cancelation TO BE IMPLEMENTED");
+  return await cancellation.update({ sifenStatus: "NO_ENVIADO" });
+  // TO BE IMPLEMENTED
+  // const xmlFileName = `cancel_${invoice.CDC}.xml`;
+  // fs.writeFileSync(xmlFileName, cancelXMLSigned);
   // send cancel XML to SIFEN
-  console.log('Send cancelation TO BE IMPLEMENTED')
 }
 
 async function updateExchangeRate() {
@@ -560,30 +606,262 @@ async function updateExchangeRate() {
     return;
   }
   const exchangeRate = exchangeRateResult.data;
-  console.log('to be sent for update', exchangeRate)
+  console.log("to be sent for update", exchangeRate);
   if (!exchangeRate) {
     console.error("Error getting exchange rate");
     return;
   }
-  try{
+  try {
     const result = await axios.post(
       `${API_URL}/exchange-rate`,
       {
-      date: exchangeRate.date,
-      salesRate: exchangeRate.salesRate,
+        date: exchangeRate.date,
+        salesRate: exchangeRate.salesRate,
       },
       {
-      headers: {
-        "x-api-key": API_KEY,
-      },
+        headers: {
+          "x-api-key": API_KEY,
+        },
       }
     );
-    
+
     return console.log("Exchange rate updated:", result.data);
   } catch (error) {
-    if(axios.isAxiosError(error)){
+    if (axios.isAxiosError(error)) {
       return console.error("Error updating exchange rate:", error.response?.data);
     }
     return console.error("Unknown updating exchange rate");
   }
+}
+
+async function processCreditNote() {
+  const { creditNote, company, creditNoteItems } = await getFirstPendingCreditNoteData();
+  if (!creditNote) {
+    console.log("No pending xml/sign creditNotes found");
+    createCreditNotesZip();
+    return;
+  }
+  console.log("Found creditNote", creditNote.id);
+  const creditNoteJSON = await getCreditNoteJSON(creditNote, company, creditNoteItems);
+  if (!creditNoteJSON) {
+    console.log("Error generating creditNote JSON");
+    return;
+  }
+
+  // test with zod
+  const isValid = await validateJSON(creditNoteJSON);
+  if (!isValid.success) {
+    console.log("Error validating JSON on creditNoteId:", creditNote.id, isValid.errors);
+    const creditNoteUpdatedFields = {
+      sifenStatus: "ERROR_JSON",
+    };
+    const updateResult = await updateCreditNote(creditNoteUpdatedFields, creditNote.id);
+    if (!updateResult) {
+      console.log("Error updating creditNote at processcreditNote");
+    }
+    return;
+  }
+
+  console.log("JSON isValid!");
+
+  const cdcSinDv = creditNote.CDC.slice(0, -1);
+
+  if (!cdcSinDv) {
+    // TODO: Marcar en base de datos como error ( y en todos los lugares donde se maneje el error)
+    return console.log("Fallo en la formación del CDC sin DV");
+  }
+  // TODO: check if we need to calculate the DV from the CDC
+  // const dv = calcularDV(cdcSinDv);
+  const dv = Number(creditNote.CDC.slice(-1));
+  let cdc = `${cdcSinDv}${dv}`;
+
+  const documentoConNulos = {
+    DE: {
+      $: {
+        Id: cdc,
+      },
+      dDVId: dv,
+      dFecFirma: creditNoteJSON.dFecFirma,
+      dSisFact: 1,
+      gOpeDE: {
+        iTipEmi: creditNoteJSON.iTipEmi,
+        dDesTipEmi: getDescription(creditNoteJSON.iTipEmi, dDesTipEmiList, "dDesTipEmiList"),
+        dCodSeg: creditNoteJSON.dCodSeg,
+      },
+      gTimb: {
+        iTiDE: creditNoteJSON.iTiDE,
+        dDesTiDE: getDescription(creditNoteJSON.iTiDE, dDesTiDEList, "dDesTiDEList"),
+        dNumTim: creditNoteJSON.dNumTim,
+        dEst: creditNoteJSON.dEst,
+        dPunExp: creditNoteJSON.dPunExp,
+        dNumDoc: creditNoteJSON.dNumDoc,
+        dFeIniT: creditNoteJSON.dFeIniT,
+      },
+      gDatGralOpe: {
+        dFeEmiDE: creditNoteJSON.dFeEmiDE,
+        gOpeCom: getgOpeCom(creditNoteJSON),
+        gEmis: {
+          dRucEm: creditNoteJSON.dRucEm,
+          dDVEmi: creditNoteJSON.dDVEmi,
+          iTipCont: creditNoteJSON.iTipCont,
+          dNomEmi: creditNoteJSON.dNomEmi,
+          dDirEmi: creditNoteJSON.dDirEmi,
+          dNumCas: creditNoteJSON.dNumCas,
+          cDepEmi: creditNoteJSON.cDepEmi,
+          dDesDepEmi: getDescription(creditNoteJSON.cDepEmi, departamentosList, "departamentosList"),
+          cDisEmi: creditNoteJSON.cDisEmi,
+          dDesDisEmi: getDescription(creditNoteJSON.cDisEmi, distritosList, "distritosList"),
+          cCiuEmi: creditNoteJSON.cCiuEmi,
+          dDesCiuEmi: getDescription(creditNoteJSON.cCiuEmi, ciudadesList, "ciudadesList"),
+          dTelEmi: creditNoteJSON.dTelEmi,
+          dEmailE: creditNoteJSON.dEmailE,
+          dDenSuc: getdDenSuc(creditNoteJSON),
+          gActEco: {
+            cActEco: creditNoteJSON.cActEco,
+            dDesActEco: creditNoteJSON.dDesActEco,
+          },
+        },
+        gDatRec: getgDatRec(creditNoteJSON),
+      },
+      gDtipDE: {
+        gCamFE: getgCamFE(creditNoteJSON),
+        gCamNCDE: getgCamNCDE(creditNoteJSON),
+        // gCamNRE: getgCamNRE(),
+        gCamCond: getgCamCond(creditNoteJSON),
+        // gTransp: getgTransp(),
+        gCamItem: buildItemsDet(creditNoteJSON.itemsDet, creditNoteJSON),
+      },
+      gTotSub: getgTotSub(creditNoteJSON),
+      gCamDEAsoc: getgCamDEAsoc(creditNoteJSON),
+    },
+  };
+
+  const documento = eliminarValoresNulos(documentoConNulos);
+  const xml = getXMLFromDocumento(documento);
+  if (!xml) {
+    return console.log("Error generating XML from Documento");
+  }
+
+  const securityCode = creditNote.securityCode;
+  const xmlPrefirma = await getFullXML(xml, cdcSinDv, dv, securityCode);
+  if (!xmlPrefirma) {
+    return console.log("Error generating XML Prefirma");
+  }
+  const xmlBuffer = Buffer.from(xmlPrefirma).toString("utf8");
+  const { dRucEm, IdcSC, CSC } = creditNoteJSON;
+  const xmlSigned = await signXML(xmlBuffer, dRucEm, cdc, IdcSC, CSC);
+  let creditNoteUpdatedFields: { sifenStatus: string; xml?: string };
+  if (!xmlSigned) {
+    creditNoteUpdatedFields = {
+      sifenStatus: "ERROR_FIRMA",
+    };
+    console.log("Error signing XML");
+  } else {
+    creditNoteUpdatedFields = {
+      xml: xmlSigned,
+      sifenStatus: "PENDIENTE",
+    };
+  }
+  // clipboard.writeSync(xmlSigned);
+  // save xmlSigned and CDC to database
+  const updateResult = await updateCreditNote(creditNoteUpdatedFields, creditNote.id);
+  if (!updateResult) {
+    console.log("Error updating creditNote at processcreditNote");
+    return;
+  }
+  return await processCreditNote();
+}
+
+async function createCreditNotesZip() {
+  const creditNote = await getFirstNoZippedCreditNote();
+  if (!creditNote) return;
+  console.log("First creditNote customer", creditNote.companyId);
+
+  const company = await getCompany(creditNote.companyId);
+  if (!company) return console.error("Error getting company");
+
+  const emisorRuc = company.ruc.split("-")[0];
+  if (!emisorRuc) return console.error("Error getting emisorRuc");
+
+  const creditNotes = await getAllNoZippedCreditNotesByCompany(creditNote.companyId);
+  if (!creditNotes.length) return console.log("No pending zip creditNotes found");
+
+  console.log(`${creditNotes.length} Credit Notes to zip`);
+  // create zip record
+  const zip = await createEmptyZip(emisorRuc, 5);
+  if (!zip) return console.error("Error creating zip");
+
+  const zipId = zip.id;
+  // update invoices with zipId with a transaction
+  const t = await sequelize.transaction();
+  try {
+    for (const cn of creditNotes) {
+      await cn.update({ zipId: zipId }, { transaction: t });
+    }
+    await t.commit();
+    console.log("Credit notes zipped! id:", zipId);
+    sendZipToSIFEN();
+  } catch (error) {
+    await t.rollback();
+    console.log("Error zipping creditNotes", error);
+  }
+}
+
+async function sendCreditNotesByEmail() {
+  const creditNote = await getFirstPendingEmailCreditNote();
+  if (!creditNote) return console.log("No pending email creditNotes found");
+  const company = await getCompany(creditNote.companyId);
+  if (!company) return console.error("Error getting company");
+  const kude = await Kude.findByPk(creditNote.CDC);
+  if (!kude) {
+    console.error("No Kude found for creditNote");
+    return await creditNote.update({ emailStatus: "ERROR_NO_KUDE" });
+  }
+  // send email with resend
+  // update invoice with emailStatus
+  const rootFileName = `notacredito_${creditNote.salespointSucursal.toString().padStart(3, "0")}-${creditNote.salespointPunto.toString().padStart(3, "0")}-${creditNote.number.toString().padStart(7, "0")}`;
+  const xmlString = `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Header/><soap:Body><rEnviDe xmlns="http://ekuatia.set.gov.py/sifen/xsd"><dId>120697</dId><xDE>${creditNote.xml}</xDE></rEnviDe></soap:Body></soap:Envelope>`;
+  const xmlFileName = `${rootFileName}.xml`;
+  fs.writeFileSync(xmlFileName, xmlString);
+  const pdfBuffer = Buffer.from(kude.base64, "base64");
+  const pdfFileName = `${rootFileName}.pdf`;
+  fs.writeFileSync(pdfFileName, pdfBuffer);
+  if (!creditNote.customerEmail) {
+    console.error("Error sending email");
+    creditNote.update({ emailStatus: "ERROR_NO_EMAIL" });
+  }
+
+  const { error } = await resend.emails.send({
+    from: "Factu <factura.electronica@factu.com.py>",
+    to: creditNote.customerEmail,
+    subject: `Tu nota de crédito electrónica de ${company.nombreFantasia || company.razonSocial}`,
+    text: getDefaultText(creditNote, company),
+    html: getDefaultHTML(creditNote, company),
+    attachments: [
+      {
+        filename: xmlFileName,
+        content: fs.readFileSync(xmlFileName),
+      },
+      {
+        filename: pdfFileName,
+        content: fs.readFileSync(pdfFileName),
+      },
+    ],
+  });
+  try {
+    fs.unlinkSync(xmlFileName);
+    fs.unlinkSync(pdfFileName);
+  } catch (error) {
+    console.log("Seems like the files don't exist yet or anymore");
+  }
+  if (error) {
+    console.log("Error sending email", error);
+    creditNote.update({ emailStatus: "ERROR" });
+  } else {
+    creditNote.update({ emailStatus: "ENVIADO" });
+  }
+  // wait 3 seconds before sending another email
+  setTimeout(() => {
+    return sendCreditNotesByEmail();
+  }, 3000);
 }

@@ -1,32 +1,34 @@
 import moment from "moment";
 import { Invoice } from "./models/invoice";
 import { Company } from "./models/company";
+import { CreditNote } from "./models/creditNote";
 
-export function getDefaultHTML(invoice: Invoice, company: Company) {
+export function getDefaultHTML(document: Invoice | CreditNote, company: Company) {
+  const documentType = document.CDC.startsWith("01") ? "Factura" : "Nota de Crédito";
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Factura Electrónica</title>
+  <title>${documentType} Electrónica</title>
 </head>
 <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
   <table style="max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 5px;">
     <tr>
       <td align="center">
-        <h2 style="color: #007bff;">Factura Electrónica de ${company.nombreFantasia || company.razonSocial}</h2>
+        <h2 style="color: #007bff;">${documentType} Electrónica de ${company.nombreFantasia || company.razonSocial}</h2>
       </td>
     </tr>
     <tr>
       <td>
-        <p>Hola <strong>${invoice.customerName}</strong>,</p>
-        <p>Adjunto encontrarás tu factura electrónica.</p>
+        <p>Hola <strong>${document.customerName}</strong>,</p>
+        <p>Adjunto encontrarás tu ${documentType} electrónica.</p>
 
-        <h3 style="color: #007bff;">Detalles de la factura:</h3>
+        <h3 style="color: #007bff;">Detalles de la ${documentType}:</h3>
         <ul>
-          <li><strong>Número de factura:</strong> ${invoice.salespointSucursal.toString().padStart(3, "0")}-${invoice.salespointPunto.toString().padStart(3, "0")}-${invoice.number.toString().padStart(7, "0")}</li>
-          <li><strong>Fecha de emisión:</strong> ${moment(invoice.dateIssued).format("DD/MM/yyyy")}</li>
-          <li><strong>Monto total:</strong> ${invoice.currencyCode} ${invoice.total}</li>
+          <li><strong>Número de ${documentType}:</strong> ${document.salespointSucursal.toString().padStart(3, "0")}-${document.salespointPunto.toString().padStart(3, "0")}-${document.number.toString().padStart(7, "0")}</li>
+          <li><strong>Fecha de emisión:</strong> ${moment(document.dateIssued).format("DD/MM/yyyy")}</li>
+          <li><strong>Monto total:</strong> ${document.currencyCode} ${document.total}</li>
         </ul>
 
         <p>¡Gracias por tu preferencia!</p>
@@ -41,10 +43,11 @@ export function getDefaultHTML(invoice: Invoice, company: Company) {
 `;
 }
 
-export function getDefaultText(invoice: Invoice, company: Company) {
-  return `Hola ${invoice.customerName},
+export function getDefaultText(document: Invoice | CreditNote, company: Company) {
+  const documentType = document.CDC.startsWith("01") ? "Factura" : "Nota de Crédito";
+  return `Hola ${document.customerName},
   
-  Te enviamos tu factura electrónica ${invoice.salespointSucursal.toString().padStart(3, "0")}-${invoice.salespointPunto.toString().padStart(3, "0")}-${invoice.number.toString().padStart(7, "0")}, emitida el ${moment(invoice.dateIssued).format("DD/MM/yyyy")}. La encontrarás adjunta en este correo.
+  Te enviamos tu ${documentType} electrónica ${document.salespointSucursal.toString().padStart(3, "0")}-${document.salespointPunto.toString().padStart(3, "0")}-${document.number.toString().padStart(7, "0")}, emitida el ${moment(document.dateIssued).format("DD/MM/yyyy")}. La encontrarás adjunta en este correo.
   
   ¡Gracias por tu preferencia!
   

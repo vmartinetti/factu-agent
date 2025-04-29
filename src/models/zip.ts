@@ -10,6 +10,7 @@ export class Zip extends Model {
   declare consultaXML: string;
   declare envioXML: string;
   declare loteNro: string;
+  declare documentType: number;
 }
 
 Zip.init({
@@ -23,6 +24,7 @@ Zip.init({
   consultaXML: DataTypes.STRING,
   envioXML: DataTypes.STRING,
   loteNro: DataTypes.STRING,
+  documentType: DataTypes.INTEGER,
 }, {
   sequelize,
   modelName: 'zip',
