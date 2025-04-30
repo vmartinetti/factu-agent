@@ -286,6 +286,7 @@ export async function getFirstPendingEmailInvoice() {
       where: {
         annulled: false,
         emailStatus: "PENDIENTE",
+        xml: { [Op.ne]: null },
       },
       logging: false,
     });
