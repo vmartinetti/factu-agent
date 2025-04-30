@@ -259,6 +259,7 @@ export async function getFirstPendingEmailCreditNote() {
       where: {
         annulled: false,
         emailStatus: "PENDIENTE",
+        xml: { [Op.ne]: null },
       },
       logging: false,
     });
