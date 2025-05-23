@@ -123,20 +123,21 @@ export async function getAllPendingInvoicesByCustomer(customerDocId: string) {
 }
 
 export async function getInvoiceJSON(invoice: Invoice, company: Company, invoiceItems: InvoiceItem[]) {
+  const isRUC = invoice.customerDocId.includes("-");
   const dDVEmiString = company.ruc.split("-")[1];
-  if (!dDVEmiString) {
-    console.log("Error getting dDVEmiString");
-    return null;
-  }
   const dRucEm = company.ruc.split("-")[0];
-  const dRucRec = invoice.customerDocId.split("-")[0];
-  const dDVRecString = invoice.customerDocId.split("-")[1];
-  const esInnominada = invoice.customerDocId === "44444401-7";
-  if (!dDVRecString) {
-    console.log("Error getting dDVRecString");
-    return null;
+  let dRucRec, dDVRecString, esInnominada, dDVRec;
+  if (isRUC) {
+    if (!dDVEmiString) {
+      console.log("Error getting dDVEmiString");
+      return null;
+    }
+    dRucRec = invoice.customerDocId.split("-")[0];
+    dDVRecString = invoice.customerDocId.split("-")[1];
+    esInnominada = invoice.customerDocId === "44444401-7";
+    dDVRec = parseInt(dDVRecString!);
   }
-  const dDVRec = parseInt(dDVRecString);
+
   const invoiceJSONWithNull = {
     IdcSC: NODE_ENV === "development" ? "0001" : String(company.idCSC).padStart(4, "0"),
     CSC: NODE_ENV === "development" ? "ABCD0000000000000000000000000000" : company.CSC,
@@ -156,7 +157,7 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
     dTiCam: invoice?.exchangeRate ? Number(invoice.exchangeRate) : null,
     dCondTiCam: invoice.currencyCode === "PYG" ? null : 1,
     dRucEm: dRucEm,
-    dDVEmi: parseInt(dDVEmiString),
+    dDVEmi: parseInt(dDVEmiString!),
     iTipCont: company.type, //1- Persona fisica, 2- Persona juridica
     dNomEmi: NODE_ENV === "development" ? "DE generado en ambiente de prueba - sin valor comercial ni fiscal" : company.razonSocial,
     dDirEmi: `${company.addressLine1} ${company.addressLine2}`,
@@ -228,8 +229,8 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
     dIVA5: invoice.iva5Total > 0 ? Number(invoice.iva5Total) : 0,
     dIVA10: invoice.iva10Total > 0 ? Number(invoice.iva10Total) : 0,
     dTotIVA: Number(invoice.iva5Total) + Number(invoice.iva10Total),
-    dBaseGrav5: invoice.gravada5Total > 0 ? Number(invoice.gravada5Total) - Number(invoice.iva5Total) : 0,
-    dBaseGrav10: invoice.gravada10Total > 0 ? Number(invoice.gravada10Total) - Number(invoice.iva10Total) : 0,
+    dBaseGrav5: invoice.gravada5Total > 0 ? Math.round((Number(invoice.gravada5Total) - Number(invoice.iva5Total)) * 100) / 100 : 0,
+    dBaseGrav10: invoice.gravada10Total > 0 ? Math.round((Number(invoice.gravada10Total) - Number(invoice.iva10Total)) * 100) / 100 : 0,
     dTBasGraIVA: Math.round((Number(invoice.gravada5Total) + Number(invoice.gravada10Total) - Number(invoice.iva5Total) - Number(invoice.iva10Total)) * 100) / 100,
     // dTotalGs: TODO: to check when USD is used
     itemsDet: invoiceItems.map((item, index) => ({
@@ -248,7 +249,7 @@ export async function getInvoiceJSON(invoice: Invoice, company: Company, invoice
       // TODO: check this for the percentage of IVA
       dPropIVA: item.iva > 0 ? 100 : 0,
       dTasaIVA: item.iva,
-      dBasGravIVA: item.iva > 0 ? Number(item.subTotal) - Number(item.iva5SubTotal) - Number(item.iva10SubTotal) : 0,
+      dBasGravIVA: item.iva > 0 ? Math.round((Number(item.subTotal) - Number(item.iva5SubTotal) - Number(item.iva10SubTotal)) * 100) / 100 : 0,
       dLiqIVAItem: item.iva > 0 ? Number(item.iva5SubTotal) + Number(item.iva10SubTotal) : 0,
     })),
   };
@@ -321,7 +322,7 @@ export async function getFirstRepairedInvoice() {
 // TODO: Move to cancellationController
 export async function getFirstCancelPendingInvoice() {
   try {
-    // 
+    //
     const cancellationPending = await Cancelation.findOne({
       where: {
         sifenStatus: "PENDIENTE",
@@ -330,11 +331,11 @@ export async function getFirstCancelPendingInvoice() {
       logging: false,
     });
     if (!cancellationPending) {
-      return {invoice: null, cancellation: null};
+      return { invoice: null, cancellation: null };
     }
     const CDC = cancellationPending.CDC;
     if (!CDC) {
-      return {invoice: null, cancellation: null};
+      return { invoice: null, cancellation: null };
     }
     const invoice = await Invoice.findOne({
       where: {
@@ -343,11 +344,11 @@ export async function getFirstCancelPendingInvoice() {
       logging: false,
     });
     if (!invoice) {
-      return {invoice: null, cancellation: null};
+      return { invoice: null, cancellation: null };
     }
-    return {invoice, cancellation: cancellationPending};
+    return { invoice, cancellation: cancellationPending };
   } catch (error) {
     console.log("Error getting first cancel pending invoice", error);
-    return {invoice: null, cancellation: null};
+    return { invoice: null, cancellation: null };
   }
 }
