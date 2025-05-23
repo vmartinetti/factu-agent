@@ -3131,17 +3131,20 @@ export const documentoSchema = z
             path: ["itemsDet", index, "dTotBruOpeItem"],
           });
         } else {
-          const resultadoEsperado = (dPUniProSer ?? 0) * (dCantProSer ?? 0);
-          const resultadoEsperadoFixed = parseFloat(
-            resultadoEsperado.toFixed(8)
-          );
-          const dTotBruOpeItemFixed = parseFloat(dTotBruOpeItem.toFixed(8));
+          const resultadoEsperado = Math.round((dPUniProSer! * dCantProSer!*100)) / 100;
+          // const resultadoEsperadoFixed = parseFloat(
+          //   resultadoEsperado.toFixed(8)
+          // );
+          // const dTotBruOpeItemFixed = parseFloat(dTotBruOpeItem.toFixed(8));
 
-          if (dTotBruOpeItemFixed !== resultadoEsperadoFixed) {
+          if (dTotBruOpeItem !== resultadoEsperado) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
               message:
-                "El campo dTotBruOpeItem debe coincidir con la multiplicación de dPUniProSer y dCantProSer.",
+                `El campo dTotBruOpeItem 
+                debe coincidir con la multiplicación de dPUniProSer y 
+                dCantProSer. dTotBruOpeItem: ${dTotBruOpeItem}, resultado 
+                esperado: ${resultadoEsperado}`,
               path: ["itemsDet", index, "dTotBruOpeItem"],
             });
           }
